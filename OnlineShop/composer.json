@@ -1,0 +1,16 @@
+{
+    "name": "abolhassanlou/onlineshop",
+    "description": "Professional PHP MVC Online Shop",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Hellen Abolhassani",
+            "email": "abolhassanlou@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "vlucas/phpdotenv": "^5.6"
+    }
+}
