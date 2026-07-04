@@ -1,11 +1,8 @@
 <?php
-require_once 'layout/header.php';
-require_once 'layout/navbar.php';
-?>
-<?php
 
 require_once '../../bootstrap.php';
 require_once '../../controller/ProductController.php';
+
 
 $controller = new ProductController();
 
@@ -22,6 +19,10 @@ $products = $controller->index($_GET, $page, $perPage);
 $totalProducts = $controller->count($_GET);
 $totalPages = ceil($totalProducts / $perPage);
 
+require_once 'layout/header.php';
+require_once 'layout/navbar.php';
+
+
 ?>
 
 <h1>Shop Products</h1>
@@ -31,7 +32,7 @@ $totalPages = ceil($totalProducts / $perPage);
 
         <?php if (!empty($product['img_name'])): ?>
             <img 
-                src="../../assets/images/<?= htmlspecialchars($product['img_name']) ?>" 
+                src="<?= BASE_URL ?>/assets/images/<?= htmlspecialchars($product['img_name']) ?>" 
                 width="150"
             >
         <?php endif; ?>
@@ -41,8 +42,9 @@ $totalPages = ceil($totalProducts / $perPage);
         <p>Price: <?= htmlspecialchars($product['price']) ?></p>
 
         <p>Category: <?= htmlspecialchars($product['category_name'] ?? '-') ?></p>
+        <p>Stock: <?= htmlspecialchars($product['stock'] >0 ? $product['stock'] : 'Out of stock') ?></p>
 
-        <a href="show.php?id=<?= $product['id'] ?>">View Details</a>
+        <a href="product.php?id=<?= $product['id'] ?>">View Details</a>
 
     </div>
 <?php endforeach; ?>

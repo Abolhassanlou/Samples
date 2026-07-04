@@ -4,11 +4,20 @@ require_once __DIR__ . '/../../../model/Category.php';
 
 $categoryModel = new Category();
 $categories = $categoryModel->all();
+$cartCount =0;
+if(isset($_SESSION['cart'])) {
+    foreach($_SESSION['cart'] as $item) {
+        $cartCount += $item['quantity'];
+    }
+}
 ?>
+
 <header class="shop-header">
 
     <div class="logo">
-        <a href="http://localhost/OnlineShop/templates/shop/index.php">OnlineShop</a>
+        <a href="<?=BASE_URL?>/templates/shop/index.php">
+            OnlineShop
+        </a>
     </div>
 
     <div class="search">
@@ -18,92 +27,119 @@ $categories = $categoryModel->all();
     </div>
 
     <div class="actions">
-        <?php if(!isset($_SESSION['user'])): ?>
-            <a href="/OnlineShop/templates/auth/login.php">Login</a>
-        <?php elseif($_SESSION['user']['is_admin']): ?>
-            <a href="/Onlinehop/templates/dashboard/dashboard.php">
-                <?= htmlspecialchars($_SESSION['user']['first_name'])?>
 
+        <?php if (!isset($_SESSION['user'])): ?>
+
+            <a href="<?=BASE_URL?>/templates/auth/login.php">
+                Login
             </a>
+
+        <?php elseif ((int)$_SESSION['user']['is_admin'] === 1): ?>
+
+            <a href="<?=BASE_URL?>/templates/dashboard/dashboard.php" class="account-link">
+                👤 <?= htmlspecialchars($_SESSION['user']['first_name']) ?>
+            </a>
+
         <?php else: ?>
-            <a href="/OnlineShop/templates/account/dashboard.php" style="color: #d6001c;">زمث
-                👤<?= htmlspecialchars(($_SESSION['user']['first_name']))?>
+
+            <a href="<?=BASE_URL ?>/templates/account/dashboard.php" class="account-link">
+                👤 <?= htmlspecialchars($_SESSION['user']['first_name']) ?>
             </a>
+
         <?php endif; ?>
+
         <a href="#">Wishlist</a>
-        <a href="#">Cart</a>
+        <a href="<?= BASE_URL?>/templates/shop/cart.php">
+            Cart(<?= $cartCount ?>)</a>
+
     </div>
 
     <nav class="navigation">
-    <ul>
-        <?php foreach ($categories as $category): ?>
+        <ul>
+
+            <?php foreach ($categories as $category): ?>
+
+                <li>
+                    <a href="<?=BASE_URL?>/templates/shop/products.php?category_id=<?= $category['id'] ?>">
+                        <?= htmlspecialchars($category['name']) ?>
+                    </a>
+                </li>
+
+            <?php endforeach; ?>
+
             <li>
-                <a href="/OnlineShop/templates/shop/products.php?category_id=<?= $category['id'] ?>">
-                    <?= htmlspecialchars($category['name']) ?>
+                <a href="<?BASE_URL?>/templates/shop/products.php?sale=1">
+                    Sale
                 </a>
             </li>
-        <?php endforeach; ?>
 
-        <li>
-            <a href="/OnlineShop/templates/shop/products.php?sale=1">Sale</a>
-        </li>
-    </ul>
-</nav>
+        </ul>
+    </nav>
 
 </header>
+
 <style>
-   .shop-header{
+
+.shop-header{
     display:grid;
 
     grid-template-areas:
         "logo search actions"
         "nav nav nav";
 
-    grid-template-columns: 260px minmax(300px, 1fr) 320px;
-
+    grid-template-columns:260px minmax(300px,1fr) 320px;
     grid-template-rows:90px 55px;
 
     background:#fff;
     border-bottom:1px solid #ddd;
 }
 
+/* Logo */
+
 .logo{
     grid-area:logo;
 
     display:flex;
-    align-items:center;
     justify-content:center;
+    align-items:center;
 
     font-size:34px;
     font-weight:bold;
 }
+
 .logo a{
-    text-decoration: none;
-    color: inherit;
+    color:#222;
+    text-decoration:none;
 }
+
+/* Search */
 
 .search{
     grid-area:search;
 
     display:flex;
     align-items:center;
-    width: 90%;
-    padding: 0 30px;
-    
+
+    padding:0 30px;
 }
-.search form {
-    width: 100%;
+
+.search form{
+    width:100%;
 }
+
 .search input{
     width:100%;
     height:48px;
-    
+
+    padding:0 18px;
+
     border:1px solid #ccc;
     border-radius:5px;
 
-    padding:0 18px;
     font-size:17px;
 }
+
+/* Right menu */
 
 .actions{
     grid-area:actions;
@@ -111,6 +147,7 @@ $categories = $categoryModel->all();
     display:flex;
     justify-content:center;
     align-items:center;
+
     gap:35px;
 }
 
@@ -120,6 +157,15 @@ $categories = $categoryModel->all();
     font-weight:600;
 }
 
+/* Logged user */
+
+.account-link{
+    color:#d6001c !important;
+    font-weight:bold;
+}
+
+/* Navigation */
+
 .navigation{
     grid-area:nav;
 
@@ -128,8 +174,8 @@ $categories = $categoryModel->all();
 
 .navigation ul{
     display:flex;
-
     justify-content:center;
+    align-items:center;
 
     gap:40px;
 
@@ -139,8 +185,6 @@ $categories = $categoryModel->all();
     padding:0;
 
     height:55px;
-
-    align-items:center;
 }
 
 .navigation a{
@@ -152,9 +196,5 @@ $categories = $categoryModel->all();
 .navigation a:hover{
     color:#d6001c;
 }
-    
-    
-    
-     
 
 </style>

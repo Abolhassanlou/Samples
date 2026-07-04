@@ -53,4 +53,10 @@ public function count(array $filters = []): int
         $productModel = new Product();
         return $productModel->delete($id);
     }
+
+    public function show(int $id): array|false
+    {
+        $productModel = new Product();
+        return $productModel->find($id);
+    }
 }

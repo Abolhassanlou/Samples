@@ -166,18 +166,27 @@ class Product extends DB
     }
 
     public function find(int $id): array|false
-    {
-        $connection = $this->getConnection();
+        {
+            $connection = $this->getConnection();
 
-        $sql = "SELECT * FROM products WHERE id = :id";
+            $sql = "
+                SELECT
+                    products.*,
+                    categories.name AS category_name
+                FROM products
+                LEFT JOIN categories
+                    ON products.category_id = categories.id
+                WHERE products.id = :id
+            ";
 
-        $stmt = $connection->prepare($sql);
-        $stmt->execute([
-            ':id' => $id
-        ]);
+            $stmt = $connection->prepare($sql);
 
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
+            $stmt->execute([
+                ':id' => $id
+            ]);
+
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        }
 
     public function update(int $id, array $data): bool
     {

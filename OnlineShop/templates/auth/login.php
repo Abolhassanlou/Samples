@@ -7,11 +7,18 @@ $errors = [];
 
 IsGuest::check();
 
-if($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $controller = new AuthController();
     $result = $controller->login($_POST);
-    if($result === true) {
-        header('Location: ../dashboard/dashboard.php');
+
+    if ($result === true) {
+
+        if ((int)$_SESSION['user']['is_admin'] === 1) {
+            header('Location: ' . BASE_URL . '/templates/dashboard/dashboard.php');
+            exit;
+        }
+
+        header('Location: ' . BASE_URL . '/templates/account/dashboard.php');
         exit;
     }
 
