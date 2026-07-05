@@ -50,5 +50,18 @@ public function delete(int $id): bool {
     $stmt = $connection->prepare($sql);
     return $stmt->execute([':id' => $id]);
 }
-
+public function items(int $orderId): array 
+{
+    $connection = $this->getConnection();
+    $sql = "
+        SELECT *
+        FROM order_items
+        WHERE order_id = :order_id
+    ";
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([
+        ':order_id'=> $orderId
+    ]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 }
