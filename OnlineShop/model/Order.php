@@ -156,4 +156,62 @@ public function items(int $orderId): array
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+public function all(): array {
+    $connection = $this->getConnection();
+    $sql = "
+    SELECT orders.*, 
+    users.first_name,
+    users.last_name,
+    users.email as user_email
+    FROM orders
+    LEFT JOIN users
+        ON orders.user_id = users.id 
+    ORDER by orders.id DESC
+    ";
+    $stmt = $connection->prepare($sql);
+    $stmt->execute();
+    return $stmt->fetchALL(PDO::FETCH_ASSOC);
+}
+public function find(int $orderId): array|false
+{
+    $connection = $this->getConnection();
+    $sql = "
+        SELECT * FROM orders
+        WHERE id= :id
+    ";
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([':id'=> $orderId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+
+}
+public function getItems(int $orderId): array {
+    $connection = $this->getConnection();
+    $sql = "
+        SELECT * 
+        FROM order_items
+        WHERE order_id = :order_id
+    ";
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([
+        ':order_id'=>$orderId
+    ]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+public function updateStatus(int $orderId, string $status): bool
+{
+    $connection = $this->getConnection();
+
+    $sql = "
+        UPDATE orders
+        SET status = :status
+        WHERE id = :id
+    ";
+
+    $stmt = $connection->prepare($sql);
+
+    return $stmt->execute([
+        ':status' => $status,
+        ':id' => $orderId
+    ]);
+}
 }

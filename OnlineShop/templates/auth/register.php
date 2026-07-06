@@ -3,6 +3,7 @@
 require_once '../../bootstrap.php';
 require_once '../../controller/AuthController.php';
 require_once '../../middleware/IsGuest.php';
+require_once '../layout/header.php';
 
 IsGuest::check();
 

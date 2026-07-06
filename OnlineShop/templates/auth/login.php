@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $errors = $result;
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,8 +36,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <div class = "login-box">
 
-    
-
+    <h2 style="color:#d6001c; text-align:center;">
+    Welcome to OnlineShop
+</h2>
     <h1>Login</h1>
 
     <?php foreach ($errors as $error): ?>
@@ -44,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?= htmlspecialchars($error) ?>
         </p>
     <?php endforeach; ?>
+    <p class="breadcrumb">
+    <a href="<?= BASE_URL ?>/templates/shop/index.php">Home</a> / Login
+</p>
 
     <form method="POST">
         <label>Email</label>
@@ -59,6 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 </div>
 </body>
+<?php
+require_once __DIR__ . '/../layout/footer.php';
+?>
+
 <style>
     * {
         box-sizing: border-box;
@@ -66,12 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     body {
-        margin: 0;
-        min-height: 100vh;
-        background: #f4f6f9;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+    margin: 0;
+    background: #f4f6f9;
     }
 
     .login-box {
@@ -80,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         padding: 30px;
         border-radius: 12px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        margin: 60px auto;
     }
 
     h1 {

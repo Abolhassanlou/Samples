@@ -40,4 +40,37 @@ class OrderController
         $order['items'] = $orderModel->items($orderId);
         return $order;
     }
+    public function index(): array 
+    {
+        $orderModel = new Order();
+        return $orderModel->all();
+    }
+    public function show (int $orderId): array|false
+    {
+        $orderModel= new Order();
+        $order = $orderModel->find($orderId);
+        if(!$order) {
+            return false;
+        }
+        $order['items'] = $orderModel->getItems($orderId);
+        return $order;
+    }
+    public function updateStatus(int $orderId, string $status): bool
+{
+    $allowedStatuses = [
+        'pending',
+        'processing',
+        'shipped',
+        'delivered',
+        'cancelled'
+    ];
+
+    if (!in_array($status, $allowedStatuses, true)) {
+        return false;
+    }
+
+    $orderModel = new Order();
+
+    return $orderModel->updateStatus($orderId, $status);
+}
 }

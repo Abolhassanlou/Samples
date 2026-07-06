@@ -24,6 +24,7 @@
         <a href="../product/index.php">Products</a>
 
         <a href="../users/index.php">Users</a>
+        <a href ="../orders/index.php">Orders</a>
 
     <?php endif; ?>
 
