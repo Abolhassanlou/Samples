@@ -5,6 +5,10 @@ use App\Http\Controllers\Api\AvailabilityOverrideController;
 use App\Http\Controllers\Api\AvailabilityRuleController;
 use App\Http\Controllers\Api\CompanyLocationController;
 use App\Http\Controllers\Api\CompanyLocationMembershipController;
+use App\Http\Controllers\Api\EmployeeQualificationController;
+use App\Http\Controllers\Api\EmployeeRegionController;
+use App\Http\Controllers\Api\QualificationController;
+use App\Http\Controllers\Api\RegionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -109,6 +113,75 @@ Route::prefix('v1')->group(function (): void {
         Route::delete(
             '/company-locations/{companyLocation}/memberships/{companyMembership}',
             [CompanyLocationMembershipController::class, 'destroy']
+        );
+        Route::get(
+            '/companies/{company}/regions',
+            [RegionController::class, 'index']
+        );
+
+        Route::post(
+            '/companies/{company}/regions',
+            [RegionController::class, 'store']
+        );
+
+        Route::get(
+            '/regions/{region}',
+            [RegionController::class, 'show']
+        );
+
+        Route::put(
+            '/regions/{region}',
+            [RegionController::class, 'update']
+        );
+
+        Route::delete(
+            '/regions/{region}',
+            [RegionController::class, 'destroy']
+        );
+
+        Route::get(
+            '/companies/{company}/qualifications',
+            [QualificationController::class, 'index']
+        );
+
+        Route::post(
+            '/companies/{company}/qualifications',
+            [QualificationController::class, 'store']
+        );
+
+        Route::get(
+            '/qualifications/{qualification}',
+            [QualificationController::class, 'show']
+        );
+
+        Route::put(
+            '/qualifications/{qualification}',
+            [QualificationController::class, 'update']
+        );
+
+        Route::delete(
+            '/qualifications/{qualification}',
+            [QualificationController::class, 'destroy']
+        );
+
+        Route::put(
+            '/company-memberships/{companyMembership}/regions/{region}',
+            [EmployeeRegionController::class, 'store']
+        );
+
+        Route::delete(
+            '/company-memberships/{companyMembership}/regions/{region}',
+            [EmployeeRegionController::class, 'destroy']
+        );
+
+        Route::put(
+            '/company-memberships/{companyMembership}/qualifications/{qualification}',
+            [EmployeeQualificationController::class, 'store']
+        );
+
+        Route::delete(
+            '/company-memberships/{companyMembership}/qualifications/{qualification}',
+            [EmployeeQualificationController::class, 'destroy']
         );
     });
 });
