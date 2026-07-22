@@ -2,11 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\Company;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<\App\Models\Company>
+ * @extends Factory<Company>
  */
 class CompanyFactory extends Factory
 {
@@ -20,8 +21,8 @@ class CompanyFactory extends Factory
         return [
             'name' => $name,
             'slug' => Str::slug($name)
-                . '-'
-                . fake()->unique()->numberBetween(1000, 9999),
+                .'-'
+                .fake()->unique()->numberBetween(1000, 9999),
 
             'company_code' => strtoupper(
                 fake()->unique()->bothify('CMP-####??')
@@ -32,6 +33,7 @@ class CompanyFactory extends Factory
             'timezone' => 'Europe/Vienna',
             'locale' => 'de',
             'is_active' => true,
+            'workforce_visibility_policy' => Company::VISIBILITY_BRANCH_ONLY,
         ];
     }
 }

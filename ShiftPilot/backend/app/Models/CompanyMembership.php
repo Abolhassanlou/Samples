@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
@@ -15,6 +16,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'role',
     'status',
     'joined_at',
+    'primary_company_location_id',
+    'access_all_locations',
+    'all_regions',
 ])]
 class CompanyMembership extends Model
 {
@@ -43,6 +47,29 @@ class CompanyMembership extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function primaryLocation(): BelongsTo
+    {
+        return $this->belongsTo(
+            CompanyLocation::class,
+            'primary_company_location_id'
+        );
+    }
+
+    public function locationAssignments(): HasMany
+    {
+        return $this->hasMany(
+            CompanyMembershipLocation::class
+        );
+    }
+
+    public function locations(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            CompanyLocation::class,
+            'company_membership_locations'
+        )->withTimestamps();
+    }
+
     /**
      * @return HasMany<AvailabilityRule, $this>
      */
@@ -69,6 +96,28 @@ class CompanyMembership extends Model
         return $this->role === $role;
     }
 
+    public function canAccessLocation(
+        CompanyLocation $companyLocation
+    ): bool {
+        if (
+            ! $this->isActive()
+            || $this->company_id !== $companyLocation->company_id
+            || ! $companyLocation->is_active
+        ) {
+            return false;
+        }
+        if (
+            $this->role === self::ROLE_COMPANY_ADMIN
+            || $this->access_all_locations
+        ) {
+            return true;
+        }
+
+        return $this->locations()
+            ->whereKey($companyLocation->id)
+            ->exists();
+    }
+
     /**
      * @return array<string, string>
      */
@@ -76,6 +125,8 @@ class CompanyMembership extends Model
     {
         return [
             'joined_at' => 'datetime',
+            'access_all_locations' => 'boolean',
+            'all_regions' => 'boolean',
         ];
     }
 }
