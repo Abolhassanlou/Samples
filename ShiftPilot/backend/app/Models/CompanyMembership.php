@@ -43,7 +43,7 @@ class CompanyMembership extends Model
         return $this->belongsTo(User::class);
     }
 
-        /**
+    /**
      * @return HasMany<AvailabilityRule, $this>
      */
     public function availabilityRules(): HasMany

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AvailabilityOverrideController;
+use App\Http\Controllers\Api\AvailabilityRuleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -20,5 +22,57 @@ Route::prefix('v1')->group(function (): void {
 
             Route::post('/logout', [AuthController::class, 'logout']);
         });
+    });
+
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::get(
+            '/company-memberships/{companyMembership}/availability-rules',
+            [AvailabilityRuleController::class, 'index']
+        );
+
+        Route::post(
+            '/company-memberships/{companyMembership}/availability-rules',
+            [AvailabilityRuleController::class, 'store']
+        );
+
+        Route::get(
+            '/availability-rules/{availabilityRule}',
+            [AvailabilityRuleController::class, 'show']
+        );
+
+        Route::put(
+            '/availability-rules/{availabilityRule}',
+            [AvailabilityRuleController::class, 'update']
+        );
+
+        Route::delete(
+            '/availability-rules/{availabilityRule}',
+            [AvailabilityRuleController::class, 'destroy']
+        );
+
+        Route::get(
+            '/company-memberships/{companyMembership}/availability-overrides',
+            [AvailabilityOverrideController::class, 'index']
+        );
+
+        Route::post(
+            '/company-memberships/{companyMembership}/availability-overrides',
+            [AvailabilityOverrideController::class, 'store']
+        );
+
+        Route::get(
+            '/availability-overrides/{availabilityOverride}',
+            [AvailabilityOverrideController::class, 'show']
+        );
+
+        Route::put(
+            '/availability-overrides/{availabilityOverride}',
+            [AvailabilityOverrideController::class, 'update']
+        );
+
+        Route::delete(
+            '/availability-overrides/{availabilityOverride}',
+            [AvailabilityOverrideController::class, 'destroy']
+        );
     });
 });
