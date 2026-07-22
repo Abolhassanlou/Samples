@@ -58,6 +58,16 @@ class Company extends Model
         return $this->hasMany(CompanyLocation::class);
     }
 
+    public function regions(): HasMany
+    {
+        return $this->hasMany(Region::class);
+    }
+
+    public function qualifications(): HasMany
+    {
+        return $this->hasMany(Qualification::class);
+    }
+
     public function featureAssignments(): HasMany
     {
         return $this->hasMany(CompanyFeature::class);

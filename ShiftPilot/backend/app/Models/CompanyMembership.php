@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Database\Factories\CompanyMembershipFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -86,6 +87,51 @@ class CompanyMembership extends Model
         return $this->hasMany(AvailabilityOverride::class);
     }
 
+    public function employeeRegions(): HasMany
+    {
+        return $this->hasMany(EmployeeRegion::class);
+    }
+
+    public function regions(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Region::class,
+            'employee_regions'
+        )
+            ->withPivot([
+                'status',
+                'approved_by_user_id',
+                'approved_at',
+                'is_active',
+            ])
+            ->withTimestamps();
+    }
+
+    public function employeeQualifications(): HasMany
+    {
+        return $this->hasMany(
+            EmployeeQualification::class
+        );
+    }
+
+    public function qualifications(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Qualification::class,
+            'employee_qualifications'
+        )
+            ->withPivot([
+                'level',
+                'status',
+                'issued_at',
+                'expires_at',
+                'verified_by_user_id',
+                'verified_at',
+                'notes',
+            ])
+            ->withTimestamps();
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
@@ -116,6 +162,54 @@ class CompanyMembership extends Model
         return $this->locations()
             ->whereKey($companyLocation->id)
             ->exists();
+    }
+
+    public function canWorkInRegion(
+        Region $region
+    ): bool {
+        if (
+            ! $this->isActive()
+            || $this->company_id !== $region->company_id
+            || ! $region->is_active
+        ) {
+            return false;
+        }
+
+        if ($this->all_regions) {
+            return true;
+        }
+
+        $employeeRegion = $this
+            ->employeeRegions()
+            ->where('region_id', $region->id)
+            ->first();
+
+        return $employeeRegion?->isUsable() ?? false;
+    }
+
+    public function hasUsableQualification(
+        Qualification $qualification,
+        CarbonInterface|string $date
+    ): bool {
+        if (
+            ! $this->isActive()
+            || $this->company_id
+                !== $qualification->company_id
+            || ! $qualification->is_active
+        ) {
+            return false;
+        }
+
+        $employeeQualification = $this
+            ->employeeQualifications()
+            ->where(
+                'qualification_id',
+                $qualification->id
+            )
+            ->first();
+
+        return $employeeQualification?->isUsableOn($date)
+            ?? false;
     }
 
     /**
