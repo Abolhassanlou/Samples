@@ -25,6 +25,15 @@ class Company extends Model
     /** @use HasFactory<CompanyFactory> */
     use HasFactory, SoftDeletes;
 
+    public const VISIBILITY_BRANCH_ONLY = 'branch_only';
+
+    public const VISIBILITY_COMPANY_WIDE = 'company_wide';
+
+    public const VISIBILITY_POLICIES = [
+        self::VISIBILITY_BRANCH_ONLY,
+        self::VISIBILITY_COMPANY_WIDE,
+    ];
+
     public function memberships(): HasMany
     {
         return $this->hasMany(CompanyMembership::class);
@@ -44,6 +53,11 @@ class Company extends Model
             ->withTimestamps();
     }
 
+    public function locations(): HasMany
+    {
+        return $this->hasMany(CompanyLocation::class);
+    }
+
     public function featureAssignments(): HasMany
     {
         return $this->hasMany(CompanyFeature::class);
@@ -61,6 +75,7 @@ class Company extends Model
                 'enabled_at',
                 'expires_at',
                 'enabled_by_user_id',
+                'workforce_visibility_policy',
             ])
             ->withTimestamps();
     }
@@ -90,6 +105,12 @@ class Company extends Model
     /**
      * @return array<string, string>
      */
+    public function usesCompanyWideWorkforce(): bool
+    {
+        return $this->workforce_visibility_policy
+            === self::VISIBILITY_COMPANY_WIDE;
+    }
+
     protected function casts(): array
     {
         return [

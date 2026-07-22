@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvailabilityOverrideController;
 use App\Http\Controllers\Api\AvailabilityRuleController;
+use App\Http\Controllers\Api\CompanyLocationController;
+use App\Http\Controllers\Api\CompanyLocationMembershipController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -73,6 +75,40 @@ Route::prefix('v1')->group(function (): void {
         Route::delete(
             '/availability-overrides/{availabilityOverride}',
             [AvailabilityOverrideController::class, 'destroy']
+        );
+        Route::get(
+            '/companies/{company}/locations',
+            [CompanyLocationController::class, 'index']
+        );
+
+        Route::post(
+            '/companies/{company}/locations',
+            [CompanyLocationController::class, 'store']
+        );
+
+        Route::get(
+            '/company-locations/{companyLocation}',
+            [CompanyLocationController::class, 'show']
+        );
+
+        Route::put(
+            '/company-locations/{companyLocation}',
+            [CompanyLocationController::class, 'update']
+        );
+
+        Route::delete(
+            '/company-locations/{companyLocation}',
+            [CompanyLocationController::class, 'destroy']
+        );
+
+        Route::post(
+            '/company-locations/{companyLocation}/memberships/{companyMembership}',
+            [CompanyLocationMembershipController::class, 'store']
+        );
+
+        Route::delete(
+            '/company-locations/{companyLocation}/memberships/{companyMembership}',
+            [CompanyLocationMembershipController::class, 'destroy']
         );
     });
 });

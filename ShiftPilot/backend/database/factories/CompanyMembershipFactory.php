@@ -23,6 +23,23 @@ class CompanyMembershipFactory extends Factory
             'role' => CompanyMembership::ROLE_EMPLOYEE,
             'status' => CompanyMembership::STATUS_ACTIVE,
             'joined_at' => now(),
+            'primary_company_location_id' => null,
+            'access_all_locations' => false,
+            'all_regions' => false,
         ];
+    }
+
+    public function withAccessToAllLocations(): static
+    {
+        return $this->state(fn (): array => [
+            'access_all_locations' => true,
+        ]);
+    }
+
+    public function withAccessToAllRegions(): static
+    {
+        return $this->state(fn (): array => [
+            'all_regions' => true,
+        ]);
     }
 }
