@@ -22,6 +22,12 @@ class Feature extends Model
     /** @use HasFactory<FeatureFactory> */
     use HasFactory;
 
+    public const KEY_RECURRING_AVAILABILITY =
+        'recurring_availability';
+
+    public const KEY_DATE_SPECIFIC_AVAILABILITY =
+        'date_specific_availability';
+
     public function companyFeatures(): HasMany
     {
         return $this->hasMany(CompanyFeature::class);

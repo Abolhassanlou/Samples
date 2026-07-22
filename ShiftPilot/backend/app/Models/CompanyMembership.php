@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'company_id',
@@ -40,6 +41,22 @@ class CompanyMembership extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return HasMany<AvailabilityRule, $this>
+     */
+    public function availabilityRules(): HasMany
+    {
+        return $this->hasMany(AvailabilityRule::class);
+    }
+
+    /**
+     * @return HasMany<AvailabilityOverride, $this>
+     */
+    public function availabilityOverrides(): HasMany
+    {
+        return $this->hasMany(AvailabilityOverride::class);
     }
 
     public function isActive(): bool
