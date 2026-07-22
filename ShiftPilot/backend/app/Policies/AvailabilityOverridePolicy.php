@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\AvailabilityOverride;
 use App\Models\CompanyMembership;
+use App\Models\Feature;
 use App\Models\User;
 
 class AvailabilityOverridePolicy
@@ -12,7 +13,8 @@ class AvailabilityOverridePolicy
         User $user,
         CompanyMembership $companyMembership
     ): bool {
-        if (! $companyMembership->isActive()) {
+        if (! $companyMembership->isActive()
+            || ! $this->featureIsEnabled($companyMembership)) {
             return false;
         }
 
@@ -31,24 +33,30 @@ class AvailabilityOverridePolicy
         User $user,
         AvailabilityOverride $availabilityOverride
     ): bool {
-        return $this->isOwner(
-            $user,
-            $availabilityOverride->companyMembership
-        ) || $this->hasCompanyRole(
-            $user,
-            $availabilityOverride->companyMembership,
-            [
-                CompanyMembership::ROLE_COMPANY_ADMIN,
-                CompanyMembership::ROLE_DISPATCHER,
-            ]
-        );
+        $companyMembership =
+            $availabilityOverride->companyMembership;
+
+        if (! $this->featureIsEnabled($companyMembership)) {
+            return false;
+        }
+
+        return $this->isOwner($user, $companyMembership)
+            || $this->hasCompanyRole(
+                $user,
+                $companyMembership,
+                [
+                    CompanyMembership::ROLE_COMPANY_ADMIN,
+                    CompanyMembership::ROLE_DISPATCHER,
+                ]
+            );
     }
 
     public function createForMembership(
         User $user,
         CompanyMembership $companyMembership
     ): bool {
-        if (! $companyMembership->isActive()) {
+        if (! $companyMembership->isActive()
+            || ! $this->featureIsEnabled($companyMembership)) {
             return false;
         }
 
@@ -67,7 +75,10 @@ class AvailabilityOverridePolicy
         $companyMembership =
             $availabilityOverride->companyMembership;
 
-        if (! $companyMembership->isActive()) {
+        if (
+            ! $companyMembership->isActive()
+            || ! $this->featureIsEnabled($companyMembership)
+        ) {
             return false;
         }
 
@@ -84,6 +95,16 @@ class AvailabilityOverridePolicy
         AvailabilityOverride $availabilityOverride
     ): bool {
         return $this->update($user, $availabilityOverride);
+    }
+
+    private function featureIsEnabled(
+        CompanyMembership $companyMembership
+    ): bool {
+        return $companyMembership
+            ->company
+            ->hasFeature(
+                Feature::KEY_DATE_SPECIFIC_AVAILABILITY
+            );
     }
 
     private function isOwner(

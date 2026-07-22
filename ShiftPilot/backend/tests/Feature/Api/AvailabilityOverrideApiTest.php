@@ -3,8 +3,10 @@
 namespace Tests\Feature\Api;
 
 use App\Models\AvailabilityOverride;
+use App\Models\AvailabilityRule;
 use App\Models\Company;
 use App\Models\CompanyMembership;
+use App\Models\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -13,6 +15,17 @@ use Tests\TestCase;
 class AvailabilityOverrideApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Feature::factory()->create([
+            'key' => Feature::KEY_DATE_SPECIFIC_AVAILABILITY,
+            'default_enabled' => true,
+            'is_active' => true,
+        ]);
+    }
 
     public function test_employee_can_create_whole_day_override(): void
     {
@@ -248,6 +261,81 @@ class AvailabilityOverrideApiTest extends TestCase
     /**
      * @return array<string, mixed>
      */
+    public function test_company_cannot_use_overrides_when_feature_is_disabled(): void
+    {
+        Feature::query()
+            ->where(
+                'key',
+                Feature::KEY_DATE_SPECIFIC_AVAILABILITY
+            )
+            ->update([
+                'default_enabled' => false,
+            ]);
+
+        $user = User::factory()->create();
+
+        $membership = CompanyMembership::factory()
+            ->for($user)
+            ->create();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson(
+            "/api/v1/company-memberships/{$membership->id}/availability-overrides",
+            [
+                'date' => '2026-08-01',
+                'status' => AvailabilityOverride::STATUS_UNAVAILABLE,
+            ]
+        )->assertForbidden();
+    }
+
+    public function test_company_can_use_both_availability_features(): void
+    {
+        Feature::factory()->create([
+            'key' => Feature::KEY_RECURRING_AVAILABILITY,
+            'default_enabled' => true,
+            'is_active' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $membership = CompanyMembership::factory()
+            ->for($user)
+            ->create();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson(
+            "/api/v1/company-memberships/{$membership->id}/availability-rules",
+            [
+                'weekday' => 1,
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'status' => AvailabilityRule::STATUS_AVAILABLE,
+                'timezone' => 'Europe/Vienna',
+                'is_active' => true,
+            ]
+        )->assertCreated();
+
+        $this->postJson(
+            "/api/v1/company-memberships/{$membership->id}/availability-overrides",
+            [
+                'date' => '2026-08-01',
+                'status' => AvailabilityOverride::STATUS_UNAVAILABLE,
+                'timezone' => 'Europe/Vienna',
+            ]
+        )->assertCreated();
+
+        $this->assertDatabaseHas('availability_rules', [
+            'company_membership_id' => $membership->id,
+        ]);
+
+        $this->assertDatabaseHas('availability_overrides', [
+            'company_membership_id' => $membership->id,
+            'date' => '2026-08-01',
+        ]);
+    }
+
     private function validTimedPayload(): array
     {
         return [

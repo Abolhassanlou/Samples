@@ -60,7 +60,6 @@ class Company extends Model
                 'configuration',
                 'enabled_at',
                 'expires_at',
-                '_at',
                 'enabled_by_user_id',
             ])
             ->withTimestamps();

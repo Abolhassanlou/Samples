@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\AvailabilityRule;
 use App\Models\Company;
 use App\Models\CompanyMembership;
+use App\Models\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -13,6 +14,17 @@ use Tests\TestCase;
 class AvailabilityRuleApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Feature::factory()->create([
+            'key' => Feature::KEY_RECURRING_AVAILABILITY,
+            'default_enabled' => true,
+            'is_active' => true,
+        ]);
+    }
 
     public function test_employee_can_create_own_availability_rule(): void
     {
@@ -209,6 +221,28 @@ class AvailabilityRuleApiTest extends TestCase
     /**
      * @return array<string, mixed>
      */
+    public function test_company_cannot_use_rules_when_feature_is_disabled(): void
+    {
+        Feature::query()
+            ->where('key', Feature::KEY_RECURRING_AVAILABILITY)
+            ->update([
+                'default_enabled' => false,
+            ]);
+
+        $user = User::factory()->create();
+
+        $membership = CompanyMembership::factory()
+            ->for($user)
+            ->create();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson(
+            "/api/v1/company-memberships/{$membership->id}/availability-rules",
+            $this->validPayload()
+        )->assertForbidden();
+    }
+
     private function validPayload(): array
     {
         return [

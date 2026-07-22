@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\AvailabilityRule;
 use App\Models\CompanyMembership;
+use App\Models\Feature;
 use App\Models\User;
 
 class AvailabilityRulePolicy
@@ -12,7 +13,8 @@ class AvailabilityRulePolicy
         User $user,
         CompanyMembership $companyMembership
     ): bool {
-        if (! $companyMembership->isActive()) {
+        if (! $companyMembership->isActive()
+            || ! $this->featureIsEnabled($companyMembership)) {
             return false;
         }
 
@@ -31,24 +33,30 @@ class AvailabilityRulePolicy
         User $user,
         AvailabilityRule $availabilityRule
     ): bool {
-        return $this->isOwner(
-            $user,
-            $availabilityRule->companyMembership
-        ) || $this->hasCompanyRole(
-            $user,
-            $availabilityRule->companyMembership,
-            [
-                CompanyMembership::ROLE_COMPANY_ADMIN,
-                CompanyMembership::ROLE_DISPATCHER,
-            ]
-        );
+        $companyMembership =
+            $availabilityRule->companyMembership;
+
+        if (! $this->featureIsEnabled($companyMembership)) {
+            return false;
+        }
+
+        return $this->isOwner($user, $companyMembership)
+            || $this->hasCompanyRole(
+                $user,
+                $companyMembership,
+                [
+                    CompanyMembership::ROLE_COMPANY_ADMIN,
+                    CompanyMembership::ROLE_DISPATCHER,
+                ]
+            );
     }
 
     public function createForMembership(
         User $user,
         CompanyMembership $companyMembership
     ): bool {
-        if (! $companyMembership->isActive()) {
+        if (! $companyMembership->isActive()
+            || ! $this->featureIsEnabled($companyMembership)) {
             return false;
         }
 
@@ -66,7 +74,8 @@ class AvailabilityRulePolicy
     ): bool {
         $companyMembership = $availabilityRule->companyMembership;
 
-        if (! $companyMembership->isActive()) {
+        if (! $companyMembership->isActive()
+    || ! $this->featureIsEnabled($companyMembership)) {
             return false;
         }
 
@@ -83,6 +92,14 @@ class AvailabilityRulePolicy
         AvailabilityRule $availabilityRule
     ): bool {
         return $this->update($user, $availabilityRule);
+    }
+
+    private function featureIsEnabled(
+        CompanyMembership $companyMembership
+    ): bool {
+        return $companyMembership
+            ->company
+            ->hasFeature(Feature::KEY_RECURRING_AVAILABILITY);
     }
 
     private function isOwner(
