@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">ShiftPilot</title>
+  <desc id="description">
+    A calendar with a check mark
+  </desc>
+
+  <rect width="512" height="512" rx="112" fill="#0f2747"></rect>
+
+  <rect x="112" y="132" width="288" height="260" rx="42" fill="#ffffff"></rect>
+
+  <rect x="112" y="132" width="288" height="82" rx="42" fill="#2f75b5"></rect>
+
+  <rect x="112" y="180" width="288" height="34" fill="#2f75b5"></rect>
+
+  <path d="M176 104V160" stroke="#ffffff" stroke-width="28" stroke-linecap="round"></path>
+
+  <path d="M336 104V160" stroke="#ffffff" stroke-width="28" stroke-linecap="round"></path>
+
+  <path d="M166 294L226 348L354 238" fill="none" stroke="#16b8a6" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
