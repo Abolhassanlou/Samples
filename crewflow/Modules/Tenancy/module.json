@@ -1,0 +1,11 @@
+{
+    "name": "Tenancy",
+    "alias": "tenancy",
+    "description": "Central-level tenant management: companies, plans, subscriptions. Unlike other modules, this one lives in the Central DB, not inside each tenant's database.",
+    "keywords": [],
+    "priority": 1,
+    "providers": [
+        "Modules\\Tenancy\\Providers\\TenancyModuleServiceProvider"
+    ],
+    "files": []
+}

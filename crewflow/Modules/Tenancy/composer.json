@@ -1,0 +1,26 @@
+{
+    "name": "modules/tenancy",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Tenancy\\Providers\\TenancyModuleServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Tenancy\\": "app/",
+            "Modules\\Tenancy\\Database\\Factories\\": "database/factories/",
+            "Modules\\Tenancy\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Tenancy\\Tests\\": "tests/"
+        }
+    }
+}

@@ -17,7 +17,6 @@ class CoreServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerConfig();
-        $this->loadMigrationsFrom(module_path($this->moduleName, 'database/migrations'));
         $this->registerRoutes();
     }
 
@@ -42,7 +41,16 @@ class CoreServiceProvider extends ServiceProvider
 
     protected function registerRoutes(): void
     {
-        Route::middleware('api')
+        // Wrapped in the tenancy middleware so these routes are only reachable
+        // through a company's subdomain (e.g. acme2024.crewflow.localhost),
+        // never on the central domain. InitializeTenancyBySubdomain switches
+        // the DB connection to that company's tenant database before the
+        // request reaches any Core controller.
+        Route::middleware([
+            'api',
+            \Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain::class,
+            \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
+        ])
             ->prefix('api')
             ->group(module_path($this->moduleName, 'routes/api.php'));
     }
