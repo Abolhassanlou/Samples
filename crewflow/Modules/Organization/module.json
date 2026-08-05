@@ -1,0 +1,11 @@
+{
+    "name": "Organization",
+    "alias": "organization",
+    "description": "Branches and clients for each company. Tenant-scoped, like Core.",
+    "keywords": [],
+    "priority": 2,
+    "providers": [
+        "Modules\\Organization\\Providers\\OrganizationServiceProvider"
+    ],
+    "files": []
+}
