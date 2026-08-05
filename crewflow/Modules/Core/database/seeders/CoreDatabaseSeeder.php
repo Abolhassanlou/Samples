@@ -27,6 +27,8 @@ class CoreDatabaseSeeder extends Seeder
             'branches.manage',
             'clients.manage',
             'qualifications.manage',
+            'users.manage',
+            'roles.manage',
         ];
 
         foreach ($permissions as $permission) {

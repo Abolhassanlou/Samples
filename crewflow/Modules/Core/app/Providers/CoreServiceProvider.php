@@ -18,6 +18,13 @@ class CoreServiceProvider extends ServiceProvider
     {
         $this->registerConfig();
         $this->registerRoutes();
+        // Note: deliberately NOT calling loadMigrationsFrom() here. This
+        // module's migrations must run ONLY as tenant migrations (via
+        // `php artisan tenants:migrate`, which reads paths directly from
+        // config/tenancy.php), never as part of the default central
+        // `php artisan migrate`. Only the Tenancy module's own provider
+        // should call loadMigrationsFrom(), since its tables genuinely
+        // belong in the Central database.
     }
 
     /**
