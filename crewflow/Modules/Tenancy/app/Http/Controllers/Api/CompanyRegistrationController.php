@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Modules\Core\Database\Seeders\CoreDatabaseSeeder;
 use Modules\Core\Models\User;
+use Modules\Organization\Database\Seeders\OrganizationDatabaseSeeder;
 use Modules\Tenancy\Http\Requests\RegisterCompanyRequest;
 use Modules\Tenancy\Models\Company;
 
@@ -27,7 +28,15 @@ class CompanyRegistrationController extends Controller
      *     migrates a brand new database for this tenant.
      *  3. Create a Domain record: {company_code}.{base_domain}.
      *  4. Switch into the new tenant's context just long enough to seed
-     *     default roles/permissions and create the first Company Admin user.
+     *     default roles/permissions, create the default "Main" branch, and
+     *     create the first Company Admin user.
+     *
+     * Architectural note: this controller deliberately references both the
+     * Core and Organization modules' seeders. That is an intentional,
+     * narrow exception to the project's usual dependency direction
+     * (Tenancy → Core only) — this class is a company-onboarding
+     * *orchestrator*, not ordinary business logic, and orchestrating a new
+     * tenant's initial data inherently touches every tenant-scoped module.
      */
     public function register(RegisterCompanyRequest $request)
     {
@@ -41,12 +50,18 @@ class CompanyRegistrationController extends Controller
 
         $domain = $companyCode.'.'.config('tenancy_module.base_domain');
 
+        // IMPORTANT: with InitializeTenancyBySubdomain, the `domain` column must
+        // contain ONLY the subdomain label (no dots) — e.g. "acme-security",
+        // not "acme-security.crewflow.localhost". A value containing a dot is
+        // treated by the resolver as a full hostname instead of a subdomain
+        // label, and would silently fail to match.
         $company->domains()->create([
             'domain' => $companyCode,
         ]);
 
         $company->run(function () use ($request) {
             (new CoreDatabaseSeeder())->run();
+            (new OrganizationDatabaseSeeder())->run();
 
             $admin = User::create([
                 'name' => $request->validated('admin_name'),

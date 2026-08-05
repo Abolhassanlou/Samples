@@ -28,6 +28,7 @@ class Company extends BaseTenant implements TenantWithDatabase
         'id',
         'company_code',
         'name',
+        'is_suspended',
     ];
 
     /**
@@ -42,6 +43,14 @@ class Company extends BaseTenant implements TenantWithDatabase
             'id',
             'company_code',
             'name',
+            'is_suspended',
+        ];
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'is_suspended' => 'boolean',
         ];
     }
 
@@ -58,7 +67,7 @@ class Company extends BaseTenant implements TenantWithDatabase
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class, 'tenant_id', 'id')
-            ->where('status', 'active')
+            ->where('status', ['trial', 'active'])
             ->latestOfMany();
     }
 }

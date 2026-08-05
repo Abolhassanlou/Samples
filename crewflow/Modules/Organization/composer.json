@@ -1,0 +1,26 @@
+{
+    "name": "modules/organization",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Organization\\Providers\\OrganizationServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Organization\\": "app/",
+            "Modules\\Organization\\Database\\Factories\\": "database/factories/",
+            "Modules\\Organization\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Organization\\Tests\\": "tests/"
+        }
+    }
+}
