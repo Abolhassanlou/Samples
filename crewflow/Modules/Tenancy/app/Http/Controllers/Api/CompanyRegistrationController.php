@@ -10,6 +10,8 @@ use Modules\Core\Models\User;
 use Modules\Organization\Database\Seeders\OrganizationDatabaseSeeder;
 use Modules\Tenancy\Http\Requests\RegisterCompanyRequest;
 use Modules\Tenancy\Models\Company;
+use Modules\Tenancy\Models\Plan;
+use Modules\Tenancy\Models\Subscription;
 
 class CompanyRegistrationController extends Controller
 {
@@ -30,6 +32,8 @@ class CompanyRegistrationController extends Controller
      *  4. Switch into the new tenant's context just long enough to seed
      *     default roles/permissions, create the default "Main" branch, and
      *     create the first Company Admin user.
+     *  5. Back in Central context, start a default trial subscription
+     *     (see startDefaultTrial()).
      *
      * Architectural note: this controller deliberately references both the
      * Core and Organization modules' seeders. That is an intentional,
@@ -73,6 +77,11 @@ class CompanyRegistrationController extends Controller
             $admin->assignRole('Company Admin');
         });
 
+        // Back in Central context here (tenancy() automatically reverted at
+        // the end of $company->run() above) — Subscription belongs to the
+        // Central database, never a tenant's.
+        $trial = $this->startDefaultTrial($company);
+
         return response()->json([
             'success' => true,
             'message' => 'Company registered successfully',
@@ -80,8 +89,37 @@ class CompanyRegistrationController extends Controller
                 'company_code' => $companyCode,
                 'domain' => $domain,
                 'login_url' => 'https://'.$domain.'/api/auth/login',
+                'trial' => $trial ? [
+                    'plan' => $trial->plan->name,
+                    'expires_at' => $trial->expires_at,
+                ] : null,
             ],
         ], 201);
+    }
+
+    /**
+     * Every self-registered company starts on a trial of the configured
+     * default plan (Demo, by default) for a configured number of days.
+     * If that plan doesn't exist yet (e.g. TenancyDatabaseSeeder hasn't
+     * been run), registration still succeeds — the company is just left
+     * without a subscription until a Super Admin assigns one manually.
+     */
+    private function startDefaultTrial(Company $company): ?Subscription
+    {
+        $planName = config('tenancy_module.default_trial_plan');
+        $plan = Plan::where('name', $planName)->first();
+
+        if (! $plan) {
+            return null;
+        }
+
+        return Subscription::create([
+            'tenant_id' => $company->id,
+            'plan_id' => $plan->id,
+            'status' => 'trial',
+            'started_at' => now(),
+            'expires_at' => now()->addDays((int) config('tenancy_module.default_trial_days')),
+        ]);
     }
 
     private function generateUniqueCompanyCode(string $companyName): string
