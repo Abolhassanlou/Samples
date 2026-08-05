@@ -23,12 +23,7 @@ Practical consequence: this module's Central migrations include a **copy** of Co
 
 1. Place this folder at `Modules/Tenancy`, enable it, `composer dump-autoload`.
 2. In `config/tenancy.php`: `'tenant_model' => \Modules\Tenancy\Models\Company::class` (see earlier setup notes for the full walkthrough — subdomain resolution, `tenant-migrations` folders, etc.)
-3. **Publish spatie's permission migration a second time, for Central this time:**
-   ```bash
-   php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider" --tag="permission-migrations"
-   mv database/migrations/*_create_permission_tables.php Modules/Tenancy/database/migrations/2024_02_01_000006b_create_central_permission_tables.php
-   ```
-   (Timestamp it so it runs before `..._000009_add_is_system_to_central_roles_table.php` and after `..._000006_create_platform_users_table.php` — exact position among the others doesn't matter otherwise.)
+3. The Central copy of spatie/laravel-permission's `create_permission_tables` migration is **already bundled** here (`database/migrations/2024_02_01_000006b_create_central_permission_tables.php`) — no manual publish/move step needed.
 4. `php artisan migrate:fresh` (Central) — should now include `platform_users`, a Central `personal_access_tokens`, `roles`/`permissions`/etc. (Central copy), and the `is_suspended` column on `tenants`.
 5. Seed plans and platform roles:
    ```bash
