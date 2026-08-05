@@ -67,7 +67,7 @@ class Company extends BaseTenant implements TenantWithDatabase
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class, 'tenant_id', 'id')
-            ->where('status', ['trial', 'active'])
+            ->whereIn('status', ['trial', 'active'])
             ->latestOfMany();
     }
 }
