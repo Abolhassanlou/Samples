@@ -1,0 +1,11 @@
+{
+    "name": "Shift",
+    "alias": "shift",
+    "description": "The actual work/shift a company posts, workers express interest in, and a dispatcher assigns. MVP scope: Shift, ShiftInterest, Assignment. Transport, formal cancellation, waitlist, and Event grouping are deferred to a later pass.",
+    "keywords": [],
+    "priority": 7,
+    "providers": [
+        "Modules\\Shift\\Providers\\ShiftServiceProvider"
+    ],
+    "files": []
+}

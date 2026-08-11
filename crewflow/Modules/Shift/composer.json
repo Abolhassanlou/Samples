@@ -1,0 +1,26 @@
+{
+    "name": "modules/shift",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Shift\\Providers\\ShiftServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Shift\\": "app/",
+            "Modules\\Shift\\Database\\Factories\\": "database/factories/",
+            "Modules\\Shift\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Shift\\Tests\\": "tests/"
+        }
+    }
+}

@@ -4,5 +4,6 @@
     "Organization": true,
     "Client": true,
     "Authentication": true,
-    "Authorization": true
+    "Authorization": true,
+    "Shift": true
 }
