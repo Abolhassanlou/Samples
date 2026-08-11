@@ -1,0 +1,11 @@
+{
+    "name": "Setting",
+    "alias": "setting",
+    "description": "Per-company configurable behavior (recurrence mode, shift completion mode, visibility mode, overtime warning thresholds, GPS check-in). Tenant-scoped — moved here from Tenancy/Central per the decision to fully separate platform concerns from product concerns.",
+    "keywords": [],
+    "priority": 8,
+    "providers": [
+        "Modules\\Setting\\Providers\\SettingServiceProvider"
+    ],
+    "files": []
+}

@@ -24,7 +24,7 @@ class CompanyManagementController extends Controller
 
     public function show(Company $company)
     {
-        $company->load(['activeSubscription.plan', 'subscriptions.plan', 'domains', 'settings']);
+        $company->load(['activeSubscription.plan', 'subscriptions.plan', 'domains']);
 
         return response()->json(['success' => true, 'data' => $this->transform($company, detailed: true)]);
     }

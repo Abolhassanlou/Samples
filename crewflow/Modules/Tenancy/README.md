@@ -5,7 +5,7 @@ Central-level tenant management. Unlike every other module in this project, this
 ## What's inside
 
 - **Company** — this project's tenant model (replaces stancl/tenancy's default `Tenant`). Adds `company_code` (used both as the subdomain label and as a human-friendly reference) and `is_suspended` (manual account suspension, independent of billing).
-- **CompanySettings**, **Plan** / **PlanLimit** / **Subscription** — billing/configuration, all Central.
+- **Plan** / **PlanLimit** / **Subscription** — billing, Central. (`CompanySettings` used to be here too — it has moved to the tenant-scoped **Setting** module, see that module's README for why.)
 - **PlatformUser** — a user of the platform itself (you, the SaaS owner), completely separate from any company's own staff.
 - **Platform roles/permissions** — fully dynamic, reusing Core's exact `Role` model class and Spatie's `Permission` class. See "Why Platform roles reuse Core's Role model" below.
 - **`POST /api/companies/register`** — the one truly public, unauthenticated Central endpoint: this is how a brand new company gets onboarded (creates the tenant, its database, migrates it, seeds Core + Organization defaults, creates the first Company Admin).
