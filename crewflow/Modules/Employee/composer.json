@@ -1,0 +1,26 @@
+{
+    "name": "modules/employee",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Employee\\Providers\\EmployeeServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Employee\\": "app/",
+            "Modules\\Employee\\Database\\Factories\\": "database/factories/",
+            "Modules\\Employee\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Employee\\Tests\\": "tests/"
+        }
+    }
+}
