@@ -16,7 +16,7 @@ use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
  * It lives in the Central database. `id` is a UUID (generated automatically
  * by the package). `company_code` is the human-friendly code workers/staff
  * enter at registration time to identify which company (tenant) they
- * belong to (see Modules\Core\Http\Controllers\Api\AuthController::register).
+ * belong to (see Modules\Authentication\Http\Controllers\Api\AuthController::register).
  */
 class Company extends BaseTenant implements TenantWithDatabase
 {

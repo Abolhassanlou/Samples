@@ -10,11 +10,11 @@ use Spatie\Permission\Traits\HasRoles;
 /**
  * A user of the platform itself (you, as the SaaS owner — not a company's
  * own staff). Deliberately a completely separate model from
- * Modules\Core\Models\User: different table, always Central (never a
+ * Modules\Authentication\Models\User: different table, always Central (never a
  * tenant database).
  *
  * Roles/permissions ARE fully dynamic here too, reusing the exact same
- * Modules\Core\Models\Role / Spatie\Permission\Models\Permission classes
+ * Modules\Authorization\Models\Role / Spatie\Permission\Models\Permission classes
  * tenant users use — Central and every tenant are just physically separate
  * databases with an identical `roles`/`permissions` schema, so the same
  * model classes work for both. The `guard_name` column ('central' here,

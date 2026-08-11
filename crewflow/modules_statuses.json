@@ -1,5 +1,8 @@
 {
     "Core": true,
     "Tenancy": true,
-    "Organization": true
+    "Organization": true,
+    "Client": true,
+    "Authentication": true,
+    "Authorization": true
 }

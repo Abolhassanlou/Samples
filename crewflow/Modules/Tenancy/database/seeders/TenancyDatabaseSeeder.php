@@ -3,7 +3,7 @@
 namespace Modules\Tenancy\Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Modules\Core\Models\Role;
+use Modules\Authorization\Models\Role;
 use Modules\Tenancy\Models\Plan;
 use Spatie\Permission\Models\Permission;
 

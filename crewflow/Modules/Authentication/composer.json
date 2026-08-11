@@ -1,0 +1,26 @@
+{
+    "name": "modules/authentication",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Authentication\\Providers\\AuthenticationServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Authentication\\": "app/",
+            "Modules\\Authentication\\Database\\Factories\\": "database/factories/",
+            "Modules\\Authentication\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Authentication\\Tests\\": "tests/"
+        }
+    }
+}

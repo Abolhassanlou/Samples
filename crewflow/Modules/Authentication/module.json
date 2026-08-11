@@ -1,0 +1,11 @@
+{
+    "name": "Authentication",
+    "alias": "authentication",
+    "description": "Shared foundation: users and dynamic role/permission (RBAC) system at the tenant level",
+    "keywords": [],
+    "priority": 1,
+    "providers": [
+        "Modules\\Authentication\\Providers\\AuthenticationServiceProvider"
+    ],
+    "files": []
+}

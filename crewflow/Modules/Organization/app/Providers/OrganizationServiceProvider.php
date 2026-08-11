@@ -2,13 +2,8 @@
 
 namespace Modules\Organization\Providers;
 
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use Modules\Organization\Models\Branch;
-use Modules\Organization\Models\Client;
-use Modules\Organization\Policies\BranchPolicy;
-use Modules\Organization\Policies\ClientPolicy;
 
 class OrganizationServiceProvider extends ServiceProvider
 {
@@ -20,9 +15,7 @@ class OrganizationServiceProvider extends ServiceProvider
     {
         $this->registerConfig();
         $this->registerRoutes();
-        Gate::policy(Branch::class, BranchPolicy::class);
-        Gate::policy(Client::class, ClientPolicy::class);
-        // Deliberately NOT calling loadMigrationsFrom() — see Core module's
+        // Deliberately NOT calling loadMigrationsFrom() — see Authentication module's
         // README for why (nwidart auto-registers the conventional
         // `database/migrations` folder with the central migrator regardless;
         // this module's migrations live in `database/tenant-migrations`
