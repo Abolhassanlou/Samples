@@ -1,0 +1,26 @@
+{
+    "name": "modules/setting",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Setting\\Providers\\SettingServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Setting\\": "app/",
+            "Modules\\Setting\\Database\\Factories\\": "database/factories/",
+            "Modules\\Setting\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Setting\\Tests\\": "tests/"
+        }
+    }
+}

@@ -10,19 +10,13 @@ return new class extends Migration
     {
         Schema::create('company_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('tenant_id');
-            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
-
-            $table->string('default_recurrence_mode')->default('reconfirm_each_time');
-            $table->string('shift_completion_mode')->default('button_confirm');
-            $table->string('shift_visibility_mode')->default('show_disabled');
+            $table->string('default_recurrence_mode')->default('reconfirm_each_time'); // auto_continue | reconfirm_each_time
+            $table->string('shift_completion_mode')->default('button_confirm'); // document_signature | button_confirm
+            $table->string('shift_visibility_mode')->default('show_disabled'); // hide_unqualified | show_disabled
             $table->unsignedInteger('warning_hour_threshold')->nullable();
             $table->decimal('warning_income_threshold', 12, 2)->nullable();
             $table->boolean('gps_checkin_required')->default(false);
-
             $table->timestamps();
-
-            $table->unique('tenant_id');
         });
     }
 

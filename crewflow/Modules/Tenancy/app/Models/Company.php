@@ -54,11 +54,6 @@ class Company extends BaseTenant implements TenantWithDatabase
         ];
     }
 
-    public function settings(): HasOne
-    {
-        return $this->hasOne(CompanySettings::class, 'tenant_id', 'id');
-    }
-
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class, 'tenant_id', 'id');
