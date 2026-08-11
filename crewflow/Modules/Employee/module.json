@@ -1,0 +1,11 @@
+{
+    "name": "Employee",
+    "alias": "employee",
+    "description": "Worker profile (employment type, rate, home branch), documents with a mandatory human review workflow, qualifications, and weekly availability. Merges the former Workforce+Documents+Qualifications concepts.",
+    "keywords": [],
+    "priority": 6,
+    "providers": [
+        "Modules\\Employee\\Providers\\EmployeeServiceProvider"
+    ],
+    "files": []
+}

@@ -5,5 +5,6 @@
     "Client": true,
     "Authentication": true,
     "Authorization": true,
-    "Shift": true
+    "Shift": true,
+    "Employee": true
 }
