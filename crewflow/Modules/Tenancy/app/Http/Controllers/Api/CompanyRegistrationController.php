@@ -5,8 +5,8 @@ namespace Modules\Tenancy\Http\Controllers\Api;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Modules\Core\Database\Seeders\CoreDatabaseSeeder;
-use Modules\Core\Models\User;
+use Modules\Authorization\Database\Seeders\AuthorizationDatabaseSeeder;
+use Modules\Authentication\Models\User;
 use Modules\Organization\Database\Seeders\OrganizationDatabaseSeeder;
 use Modules\Tenancy\Http\Requests\RegisterCompanyRequest;
 use Modules\Tenancy\Models\Company;
@@ -36,7 +36,7 @@ class CompanyRegistrationController extends Controller
      *     (see startDefaultTrial()).
      *
      * Architectural note: this controller deliberately references both the
-     * Core and Organization modules' seeders. That is an intentional,
+     * Authorization and Organization modules' seeders. That is an intentional,
      * narrow exception to the project's usual dependency direction
      * (Tenancy → Core only) — this class is a company-onboarding
      * *orchestrator*, not ordinary business logic, and orchestrating a new
@@ -64,7 +64,7 @@ class CompanyRegistrationController extends Controller
         ]);
 
         $company->run(function () use ($request) {
-            (new CoreDatabaseSeeder())->run();
+            (new AuthorizationDatabaseSeeder())->run();
             (new OrganizationDatabaseSeeder())->run();
 
             $admin = User::create([

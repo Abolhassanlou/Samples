@@ -3,7 +3,7 @@
 namespace Modules\Organization\Services;
 
 use Illuminate\Support\Facades\DB;
-use Modules\Core\Models\User;
+use Modules\Authentication\Models\User;
 
 /**
  * Encapsulates the "is this dispatcher restricted to specific branches"

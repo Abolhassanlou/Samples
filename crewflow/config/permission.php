@@ -2,7 +2,7 @@
 
 use Spatie\Permission\DefaultTeamResolver;
 use Spatie\Permission\Models\Permission;
-use Modules\Core\Models\Role;
+use Modules\Authorization\Models\Role;
 
 return [
 

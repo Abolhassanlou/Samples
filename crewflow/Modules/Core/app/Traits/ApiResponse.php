@@ -5,9 +5,7 @@ namespace Modules\Core\Traits;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Consistent API response shape for every module.
- * Every other module (Shifts, Dispatch, ...) uses this Trait from Core
- * so that all endpoint output stays uniform.
+ * Consistent API response shape for every module in the project.
  */
 trait ApiResponse
 {

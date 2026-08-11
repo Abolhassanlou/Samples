@@ -4,7 +4,7 @@ namespace Modules\Organization\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Modules\Core\Models\User;
+use Modules\Authentication\Models\User;
 
 class Branch extends Model
 {

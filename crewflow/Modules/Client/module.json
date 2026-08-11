@@ -1,0 +1,11 @@
+{
+    "name": "Client",
+    "alias": "client",
+    "description": "The company's own customers (e.g. a building needing guards, a family needing a tutor). Not to be confused with Company (the tenant itself, in Tenancy).",
+    "keywords": [],
+    "priority": 5,
+    "providers": [
+        "Modules\\Client\\Providers\\ClientServiceProvider"
+    ],
+    "files": []
+}

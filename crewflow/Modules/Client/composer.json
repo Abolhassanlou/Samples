@@ -1,0 +1,26 @@
+{
+    "name": "modules/client",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Client\\Providers\\ClientServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Client\\": "app/",
+            "Modules\\Client\\Database\\Factories\\": "database/factories/",
+            "Modules\\Client\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Client\\Tests\\": "tests/"
+        }
+    }
+}

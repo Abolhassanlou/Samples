@@ -1,0 +1,11 @@
+{
+    "name": "Authorization",
+    "alias": "authorization",
+    "description": "Dynamic role/permission (RBAC) management: Company Admin can define custom user groups (roles) and decide which sections/actions each group can access.",
+    "keywords": [],
+    "priority": 2,
+    "providers": [
+        "Modules\\Authorization\\Providers\\AuthorizationServiceProvider"
+    ],
+    "files": []
+}

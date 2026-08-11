@@ -4,7 +4,7 @@ namespace Modules\Tenancy\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
-use Modules\Core\Models\Role;
+use Modules\Authorization\Models\Role;
 use Modules\Tenancy\Models\PlatformUser;
 
 class MakePlatformAdmin extends Command

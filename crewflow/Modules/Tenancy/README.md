@@ -13,7 +13,7 @@ Central-level tenant management. Unlike every other module in this project, this
 
 ## Why Platform roles reuse Core's `Role` model
 
-spatie/laravel-permission only supports **one** global Role/Permission model configuration per application (`config('permission.models.role')`). Rather than fighting that with a second parallel model class, Platform roles reuse the *exact same* `Modules\Core\Models\Role` / `Spatie\Permission\Models\Permission` classes tenant users use.
+spatie/laravel-permission only supports **one** global Role/Permission model configuration per application (`config('permission.models.role')`). Rather than fighting that with a second parallel model class, Platform roles reuse the *exact same* `Modules\Authorization\Models\Role` / `Spatie\Permission\Models\Permission` classes tenant users use.
 
 This works because Central and every tenant are just physically separate databases with an **identical** `roles`/`permissions` schema — the same model classes operate correctly against whichever database is "current" at request time (Central for `/api/platform/*` routes, since they never initialize tenancy; a specific tenant's database for that company's own routes). The `guard_name` column (`'central'` for `PlatformUser`, `'api'` for tenant `User`) is what keeps the two worlds' roles from ever mixing, even though they share model classes and — not a coincidence — even share the exact same table *names*, just in different databases.
 

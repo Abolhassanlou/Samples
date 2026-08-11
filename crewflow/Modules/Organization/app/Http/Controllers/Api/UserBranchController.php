@@ -5,13 +5,17 @@ namespace Modules\Organization\Http\Controllers\Api;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
-use Modules\Core\Models\User;
+use Modules\Authentication\Models\User;
 use Modules\Core\Traits\ApiResponse;
 use Modules\Organization\Models\Branch;
 
 /**
  * Manages which branches a dispatcher is restricted to (see
  * BranchAccessService for the underlying rule: zero rows = unrestricted).
+ *
+ * Authorization is handled entirely at the route level — nested under the
+ * same `permission:branches.manage` group as the rest of branch management
+ * (see routes/api.php).
  */
 class UserBranchController extends Controller
 {
@@ -19,8 +23,6 @@ class UserBranchController extends Controller
 
     public function index(User $user)
     {
-        $this->authorize('create', Branch::class); // reuse branches.manage
-
         $branchIds = DB::table('user_branch')->where('user_id', $user->id)->pluck('branch_id');
 
         return $this->success([
@@ -32,8 +34,6 @@ class UserBranchController extends Controller
 
     public function store(Request $request, User $user)
     {
-        $this->authorize('create', Branch::class);
-
         $data = $request->validate([
             'branch_id' => ['required', 'integer', 'exists:branches,id'],
         ]);
@@ -50,8 +50,6 @@ class UserBranchController extends Controller
 
     public function destroy(User $user, Branch $branch)
     {
-        $this->authorize('create', Branch::class);
-
         DB::table('user_branch')->where('user_id', $user->id)->where('branch_id', $branch->id)->delete();
 
         return $this->success(null, 'Branch restriction removed');

@@ -8,21 +8,21 @@ use Modules\Organization\Http\Requests\BranchRequest;
 use Modules\Organization\Http\Resources\BranchResource;
 use Modules\Organization\Models\Branch;
 
+/**
+ * Authorization for every mutating action here is handled entirely at
+ * the route level (permission:branches.manage in routes/api.php).
+ */
 class BranchController extends Controller
 {
     use ApiResponse;
 
     public function index()
     {
-        $this->authorize('viewAny', Branch::class);
-
         return $this->success(BranchResource::collection(Branch::orderByDesc('is_main')->get()));
     }
 
     public function store(BranchRequest $request)
     {
-        $this->authorize('create', Branch::class);
-
         $branch = Branch::create($request->validated());
 
         if ($branch->is_main) {
@@ -34,8 +34,6 @@ class BranchController extends Controller
 
     public function update(BranchRequest $request, Branch $branch)
     {
-        $this->authorize('update', $branch);
-
         $branch->update($request->validated());
 
         if ($branch->is_main) {
@@ -54,8 +52,6 @@ class BranchController extends Controller
      */
     public function destroy(Branch $branch)
     {
-        $this->authorize('delete', $branch);
-
         $activeCount = Branch::where('is_active', true)->count();
 
         if ($activeCount <= 1) {

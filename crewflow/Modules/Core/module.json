@@ -1,7 +1,7 @@
 {
     "name": "Core",
     "alias": "core",
-    "description": "Shared foundation: users and dynamic role/permission (RBAC) system at the tenant level",
+    "description": "Truly generic shared kernel: base Controller class and the ApiResponse trait. Nothing domain-specific lives here — User/Role/Auth moved to the Authentication module.",
     "keywords": [],
     "priority": 0,
     "providers": [
