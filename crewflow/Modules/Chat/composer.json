@@ -1,0 +1,26 @@
+{
+    "name": "modules/chat",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Chat\\Providers\\ChatServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Chat\\": "app/",
+            "Modules\\Chat\\Database\\Factories\\": "database/factories/",
+            "Modules\\Chat\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Chat\\Tests\\": "tests/"
+        }
+    }
+}

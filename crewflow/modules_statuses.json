@@ -8,5 +8,6 @@
     "Shift": true,
     "Employee": true,
     "Setting": true,
-    "Notification": true
+    "Notification": true,
+    "Chat": true
 }
