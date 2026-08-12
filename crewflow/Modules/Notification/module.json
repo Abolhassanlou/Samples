@@ -1,0 +1,11 @@
+{
+    "name": "Notification",
+    "alias": "notification",
+    "description": "Notifies workers when a Shift they're assigned to changes (schedule, location, cancellation) or when they're newly assigned. Listens to Shift's Eloquent events via Observers — Shift has no idea this module exists, avoiding a reverse dependency. The Entity/table is deliberately named 'Alarm', not 'Notification', to avoid colliding with Laravel's own built-in notifications table.",
+    "keywords": [],
+    "priority": 9,
+    "providers": [
+        "Modules\\Notification\\Providers\\NotificationServiceProvider"
+    ],
+    "files": []
+}
