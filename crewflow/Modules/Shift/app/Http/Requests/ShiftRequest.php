@@ -13,10 +13,12 @@ class ShiftRequest extends FormRequest
 
     public function rules(): array
     {
+        $isCreating = $this->isMethod('POST');
+
         return [
-            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'branch_id' => [$isCreating ? 'required' : 'sometimes', 'integer', 'exists:branches,id'],
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
-            'title' => ['required', 'string', 'max:255'],
+            'title' => [$isCreating ? 'required' : 'sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
 
             'location_type' => ['sometimes', 'in:on_site,online'],
@@ -36,8 +38,8 @@ class ShiftRequest extends FormRequest
             'fixed_amount' => ['nullable', 'numeric', 'min:0'],
             'client_billing_rate' => ['nullable', 'numeric', 'min:0'],
 
-            'starts_at' => ['required', 'date'],
-            'ends_at' => ['required', 'date', 'after:starts_at'],
+            'starts_at' => [$isCreating ? 'required' : 'sometimes', 'date'],
+            'ends_at' => [$isCreating ? 'required' : 'sometimes', 'date', 'after:starts_at'],
         ];
     }
 }

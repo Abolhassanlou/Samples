@@ -7,5 +7,6 @@
     "Authorization": true,
     "Shift": true,
     "Employee": true,
-    "Setting": true
+    "Setting": true,
+    "Notification": true
 }
