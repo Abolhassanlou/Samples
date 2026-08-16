@@ -1,0 +1,11 @@
+{
+    "name": "Transaction",
+    "alias": "transaction",
+    "description": "The company's own billing/invoicing with ITS clients (Client module) — not to be confused with the platform's own billing of the company (Plan/Subscription, in Tenancy, slated for extraction to a separate platform project). Ties an amount owed to a Client, optionally linked to a specific Shift.",
+    "keywords": [],
+    "priority": 12,
+    "providers": [
+        "Modules\\Transaction\\Providers\\TransactionServiceProvider"
+    ],
+    "files": []
+}

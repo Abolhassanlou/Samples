@@ -1,0 +1,11 @@
+{
+    "name": "Payment",
+    "alias": "payment",
+    "description": "Worker payroll: logging actual hours/amount earned when an Assignment is completed, completion proof (document or digital signature), and post-completion ratings. Reads Setting's overtime warning thresholds to flag (never block) when a worker exceeds them.",
+    "keywords": [],
+    "priority": 11,
+    "providers": [
+        "Modules\\Payment\\Providers\\PaymentServiceProvider"
+    ],
+    "files": []
+}
