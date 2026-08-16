@@ -1,0 +1,11 @@
+{
+    "name": "Admin",
+    "alias": "admin",
+    "description": "The Company Admin's own back-office: this company's profile/logo, and a dashboard/reports view aggregating data already owned by other modules (Shift, Employee, Transaction). Role/permission definition (Authorization) and qualification definition (Employee) are deliberately NOT duplicated here. This is the tenant's own admin — not the platform's Super Admin, which is a separate, soon-to-be-extracted project.",
+    "keywords": [],
+    "priority": 13,
+    "providers": [
+        "Modules\\Admin\\Providers\\AdminServiceProvider"
+    ],
+    "files": []
+}

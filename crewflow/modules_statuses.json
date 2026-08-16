@@ -11,5 +11,6 @@
     "Notification": true,
     "Chat": true,
     "Payment": true,
-    "Transaction": true
+    "Transaction": true,
+    "Admin": true
 }
