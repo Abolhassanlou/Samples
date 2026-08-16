@@ -9,5 +9,7 @@
     "Employee": true,
     "Setting": true,
     "Notification": true,
-    "Chat": true
+    "Chat": true,
+    "Payment": true,
+    "Transaction": true
 }

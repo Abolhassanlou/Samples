@@ -1,0 +1,26 @@
+{
+    "name": "modules/transaction",
+    "description": "",
+    "type": "laravel-module",
+    "license": "MIT",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Transaction\\Providers\\TransactionServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Transaction\\": "app/",
+            "Modules\\Transaction\\Database\\Factories\\": "database/factories/",
+            "Modules\\Transaction\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Transaction\\Tests\\": "tests/"
+        }
+    }
+}
