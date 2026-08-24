@@ -9,15 +9,17 @@ use Modules\Client\Models\Client;
 use Modules\Organization\Models\Branch;
 
 /**
- * A posted piece of work a company needs filled. MVP scope — no Event
- * grouping, no TransportGroup, no ShiftQualification yet (see module.json
- * for what's deferred).
+ * A posted piece of work a company needs filled. Optionally belongs to
+ * an Event (grouping) and/or has role-specific ShiftPosition breakdowns
+ * — both fully optional, so every Shift created before these existed
+ * keeps working exactly as before (plain quantity_needed, no roles).
  */
 class Shift extends Model
 {
     protected $table = 'shifts';
 
     protected $fillable = [
+        'event_id',
         'branch_id',
         'client_id',
         'title',
@@ -54,6 +56,11 @@ class Shift extends Model
         ];
     }
 
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class);
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
@@ -74,13 +81,32 @@ class Shift extends Model
         return $this->hasMany(Assignment::class);
     }
 
+    public function positions(): HasMany
+    {
+        return $this->hasMany(ShiftPosition::class);
+    }
+
+    public function hasPositions(): bool
+    {
+        return $this->positions()->exists();
+    }
+
     public function confirmedAssignmentsCount(): int
     {
         return $this->assignments()->where('status', 'confirmed')->count();
     }
 
+    /**
+     * When this Shift has role-specific positions, it's full only once
+     * EVERY position is full. Otherwise, falls back to the plain
+     * quantity_needed count (legacy behavior).
+     */
     public function isFull(): bool
     {
+        if ($this->hasPositions()) {
+            return $this->positions()->get()->every(fn (ShiftPosition $position) => $position->isFull());
+        }
+
         return $this->confirmedAssignmentsCount() >= $this->quantity_needed;
     }
 }

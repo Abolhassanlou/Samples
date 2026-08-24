@@ -24,7 +24,7 @@ class ShiftController extends Controller
 
     public function index()
     {
-        return $this->success(ShiftResource::collection(Shift::orderByDesc('starts_at')->get()));
+        return $this->success(ShiftResource::collection(Shift::with('positions.role')->orderByDesc('starts_at')->get()));
     }
 
     public function store(ShiftRequest $request)
@@ -43,7 +43,7 @@ class ShiftController extends Controller
 
     public function show(Shift $shift)
     {
-        return $this->success(new ShiftResource($shift));
+        return $this->success(new ShiftResource($shift->load('positions.role')));
     }
 
     public function update(ShiftRequest $request, Shift $shift)

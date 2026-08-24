@@ -11,6 +11,7 @@ class ShiftResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'event_id' => $this->event_id,
             'branch_id' => $this->branch_id,
             'client_id' => $this->client_id,
             'title' => $this->title,
@@ -25,6 +26,7 @@ class ShiftResource extends JsonResource
             'internal_contact_phone' => $this->internal_contact_phone,
             'quantity_needed' => $this->quantity_needed,
             'confirmed_count' => $this->confirmedAssignmentsCount(),
+            'positions' => ShiftPositionResource::collection($this->whenLoaded('positions')),
             'rate_type' => $this->rate_type,
             'hourly_rate' => $this->hourly_rate,
             'fixed_amount' => $this->fixed_amount,
