@@ -7,8 +7,9 @@ use Illuminate\Routing\Controller;
 use Modules\Tenancy\Models\Plan;
 
 /**
- * `store` authorization is handled entirely at the route level
- * (permission:platform.plans.manage in routes/api.php).
+ * `store` authorization is handled entirely at the route level via the
+ * AuthenticatePlatformService middleware (a static service API key —
+ * see routes/api.php and CompanyManagementController's docblock for why).
  */
 class PlanController extends Controller
 {

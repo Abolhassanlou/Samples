@@ -9,7 +9,9 @@ use Modules\Tenancy\Models\Subscription;
 
 /**
  * Authorization for every action here is handled entirely at the route
- * level (permission:platform.subscriptions.manage in routes/api.php).
+ * level via the AuthenticatePlatformService middleware (a static service
+ * API key — see routes/api.php and CompanyManagementController's
+ * docblock for why).
  */
 class SubscriptionManagementController extends Controller
 {

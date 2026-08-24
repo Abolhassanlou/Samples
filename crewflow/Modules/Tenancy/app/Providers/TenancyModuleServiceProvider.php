@@ -24,12 +24,6 @@ class TenancyModuleServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'database/migrations'));
         $this->registerRoutes();
-
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                \Modules\Tenancy\Console\Commands\MakePlatformAdmin::class,
-            ]);
-        }
     }
 
     public function register(): void
