@@ -12,6 +12,8 @@ class AssignmentResource extends JsonResource
         return [
             'id' => $this->id,
             'shift_id' => $this->shift_id,
+            'shift_position_id' => $this->shift_position_id,
+            'role_name' => $this->whenLoaded('position', fn () => $this->position?->role?->name),
             'worker_id' => $this->worker_id,
             'worker_name' => $this->whenLoaded('worker', fn () => $this->worker->name),
             'assigned_by' => $this->assigned_by,

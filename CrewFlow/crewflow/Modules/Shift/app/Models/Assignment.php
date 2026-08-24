@@ -23,6 +23,7 @@ class Assignment extends Model
 
     protected $fillable = [
         'shift_id',
+        'shift_position_id',
         'worker_id',
         'assigned_by',
         'assigned_at',
@@ -43,6 +44,11 @@ class Assignment extends Model
     public function shift(): BelongsTo
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(ShiftPosition::class, 'shift_position_id');
     }
 
     public function worker(): BelongsTo

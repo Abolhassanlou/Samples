@@ -9,6 +9,7 @@ use Modules\Shift\Http\Resources\AssignmentResource;
 use Modules\Shift\Models\Assignment;
 use Modules\Shift\Models\Shift;
 use Modules\Shift\Models\ShiftInterest;
+use Modules\Shift\Models\ShiftPosition;
 
 class AssignmentController extends Controller
 {
@@ -16,7 +17,7 @@ class AssignmentController extends Controller
 
     public function index(Shift $shift)
     {
-        $assignments = $shift->assignments()->with('worker')->get();
+        $assignments = $shift->assignments()->with(['worker', 'position.role'])->get();
 
         return $this->success(AssignmentResource::collection($assignments));
     }
@@ -27,17 +28,38 @@ class AssignmentController extends Controller
      * A worker doesn't need to have expressed interest first — a dispatcher
      * can assign directly — but if a pending interest exists, it's marked
      * "converted" so it stops showing up as still-pending.
+     *
+     * If the Shift has role-specific positions (see ShiftPosition), the
+     * request must say which one this assignment fills. If it doesn't
+     * have any positions, works exactly as before (plain headcount).
      */
     public function store(Request $request, Shift $shift)
     {
-        if ($shift->isFull()) {
-            return $this->error('This shift already has enough confirmed workers.', 422);
-        }
-
         $data = $request->validate([
             'worker_id' => ['required', 'integer', 'exists:users,id'],
+            'shift_position_id' => ['nullable', 'integer', 'exists:shift_positions,id'],
             'transport_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        $position = null;
+
+        if ($shift->hasPositions()) {
+            if (empty($data['shift_position_id'])) {
+                return $this->error('This shift has specific roles — shift_position_id is required.', 422);
+            }
+
+            $position = ShiftPosition::where('id', $data['shift_position_id'])->where('shift_id', $shift->id)->first();
+
+            if (! $position) {
+                return $this->error('That position does not belong to this shift.', 422);
+            }
+
+            if ($position->isFull()) {
+                return $this->error('This position is already full.', 422);
+            }
+        } elseif ($shift->isFull()) {
+            return $this->error('This shift already has enough confirmed workers.', 422);
+        }
 
         $existing = Assignment::where('shift_id', $shift->id)
             ->where('worker_id', $data['worker_id'])
@@ -50,6 +72,7 @@ class AssignmentController extends Controller
 
         $assignment = Assignment::create([
             'shift_id' => $shift->id,
+            'shift_position_id' => $position?->id,
             'worker_id' => $data['worker_id'],
             'assigned_by' => $request->user()->id,
             'assigned_at' => now(),
@@ -66,7 +89,7 @@ class AssignmentController extends Controller
             $shift->update(['status' => 'partially_filled']);
         }
 
-        return $this->success(new AssignmentResource($assignment), 'Worker assigned', 201);
+        return $this->success(new AssignmentResource($assignment->load('position.role')), 'Worker assigned', 201);
     }
 
     /**

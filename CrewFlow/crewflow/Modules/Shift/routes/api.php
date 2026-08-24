@@ -2,18 +2,39 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Shift\Http\Controllers\Api\AssignmentController;
+use Modules\Shift\Http\Controllers\Api\EventController;
 use Modules\Shift\Http\Controllers\Api\ShiftController;
 use Modules\Shift\Http\Controllers\Api\ShiftInterestController;
+use Modules\Shift\Http\Controllers\Api\ShiftPositionController;
+use Modules\Shift\Http\Controllers\Api\ShiftRoleController;
 
 Route::middleware('auth:sanctum')->group(function () {
-    // Viewing shifts: any authenticated company user.
+    // Viewing: any authenticated company user.
+    Route::get('events', [EventController::class, 'index']);
+    Route::get('events/{event}', [EventController::class, 'show']);
+    Route::get('events/{event}/shifts', [EventController::class, 'shifts']);
+
+    Route::get('shift-roles', [ShiftRoleController::class, 'index']);
+
     Route::get('shifts', [ShiftController::class, 'index']);
     Route::get('shifts/{shift}', [ShiftController::class, 'show']);
+    Route::get('shifts/{shift}/positions', [ShiftPositionController::class, 'index']);
 
-    // Creating/editing shifts: dispatcher or admin.
+    // Creating/editing: dispatcher or admin.
     Route::middleware('permission:shifts.create')->group(function () {
+        Route::post('events', [EventController::class, 'store']);
+        Route::put('events/{event}', [EventController::class, 'update']);
+
+        Route::post('shift-roles', [ShiftRoleController::class, 'store']);
+        Route::put('shift-roles/{shift_role}', [ShiftRoleController::class, 'update']);
+        Route::delete('shift-roles/{shift_role}', [ShiftRoleController::class, 'destroy']);
+
         Route::post('shifts', [ShiftController::class, 'store']);
         Route::put('shifts/{shift}', [ShiftController::class, 'update']);
+
+        Route::post('shifts/{shift}/positions', [ShiftPositionController::class, 'store']);
+        Route::put('shifts/{shift}/positions/{position}', [ShiftPositionController::class, 'update']);
+        Route::delete('shifts/{shift}/positions/{position}', [ShiftPositionController::class, 'destroy']);
     });
 
     // Expressing/withdrawing interest: any worker, no special permission.
