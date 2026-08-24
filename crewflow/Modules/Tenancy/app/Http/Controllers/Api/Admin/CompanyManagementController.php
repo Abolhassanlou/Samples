@@ -7,9 +7,12 @@ use Modules\Tenancy\Models\Company;
 
 /**
  * Authorization for every action here is handled entirely at the route
- * level (see routes/api.php: `permission:platform.companies.view` /
- * `permission:platform.companies.manage`), not inside these methods.
- * The route is the single source of truth for who can call what.
+ * level via the AuthenticatePlatformService middleware (routes/api.php)
+ * — a static service API key, not a per-user permission. Fine-grained
+ * human-level authorization (which platform admin can do what) now
+ * happens inside the separate Platform project, before it ever calls
+ * this API. crewflow only verifies "is this a legitimate call from the
+ * Platform service", not "which human is asking".
  */
 class CompanyManagementController extends Controller
 {

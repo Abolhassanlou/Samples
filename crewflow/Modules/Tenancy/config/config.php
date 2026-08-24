@@ -18,4 +18,13 @@ return [
      */
     'default_trial_plan' => env('DEFAULT_TRIAL_PLAN', 'Demo'),
     'default_trial_days' => env('DEFAULT_TRIAL_DAYS', 14),
+
+    /*
+     * The shared secret the separate Platform project must send as a
+     * Bearer token to reach anything under /api/internal/*. This is a
+     * service-to-service credential, not tied to any individual platform
+     * admin's session — see AuthenticatePlatformService's docblock.
+     * Generate a long random value, e.g.: php artisan tinker --execute="echo Str::random(64);"
+     */
+    'platform_service_api_key' => env('PLATFORM_SERVICE_API_KEY'),
 ];
