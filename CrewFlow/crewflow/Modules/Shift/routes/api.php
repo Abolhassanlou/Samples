@@ -2,11 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Shift\Http\Controllers\Api\AssignmentController;
+use Modules\Shift\Http\Controllers\Api\CancellationRequestController;
 use Modules\Shift\Http\Controllers\Api\EventController;
 use Modules\Shift\Http\Controllers\Api\ShiftController;
 use Modules\Shift\Http\Controllers\Api\ShiftInterestController;
 use Modules\Shift\Http\Controllers\Api\ShiftPositionController;
 use Modules\Shift\Http\Controllers\Api\ShiftRoleController;
+use Modules\Shift\Http\Controllers\Api\TransportGroupController;
 
 Route::middleware('auth:sanctum')->group(function () {
     // Viewing: any authenticated company user.
@@ -46,7 +48,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('shifts/{shift}/interests', [ShiftInterestController::class, 'index']);
         Route::get('shifts/{shift}/assignments', [AssignmentController::class, 'index']);
         Route::post('shifts/{shift}/assignments', [AssignmentController::class, 'store']);
+
+        Route::get('events/{event}/transport-groups', [TransportGroupController::class, 'index']);
+        Route::post('events/{event}/transport-groups', [TransportGroupController::class, 'store']);
+        Route::put('events/{event}/transport-groups/{transportGroup}', [TransportGroupController::class, 'update']);
+        Route::delete('events/{event}/transport-groups/{transportGroup}', [TransportGroupController::class, 'destroy']);
+
+        Route::get('cancellation-requests', [CancellationRequestController::class, 'index']);
+        Route::post('cancellation-requests/{cancellationRequest}/approve', [CancellationRequestController::class, 'approve']);
+        Route::post('cancellation-requests/{cancellationRequest}/reject', [CancellationRequestController::class, 'reject']);
     });
+
+    // A worker requesting cancellation of their own assignment — no
+    // special permission, the controller checks ownership.
+    Route::post('assignments/{assignment}/cancellation-request', [CancellationRequestController::class, 'store']);
 
     // A worker confirming their own assignment — no special permission,
     // the controller checks the assignment belongs to the requester.

@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Authentication\Models\User;
 
 /**
- * A worker's expression of interest in a Shift. Free to withdraw any time
- * before the dispatcher assigns someone (see project-business-model.md,
- * section 5, rule 9 for the full cancellation-after-assignment rule —
- * not yet implemented in this MVP pass, see Assignment's docblock).
+ * A worker's expression of interest in a Shift (optionally in one
+ * specific ShiftPosition/role, if the shift has any). Free to withdraw
+ * any time before the dispatcher assigns someone. If the shift/position
+ * is already full when interest is expressed, status becomes
+ * "waitlisted" instead of "pending" — see ShiftInterestController.
  */
 class ShiftInterest extends Model
 {
@@ -18,6 +19,7 @@ class ShiftInterest extends Model
 
     protected $fillable = [
         'shift_id',
+        'shift_position_id',
         'worker_id',
         'expressed_at',
         'withdrawn_at',
@@ -35,6 +37,11 @@ class ShiftInterest extends Model
     public function shift(): BelongsTo
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(ShiftPosition::class, 'shift_position_id');
     }
 
     public function worker(): BelongsTo

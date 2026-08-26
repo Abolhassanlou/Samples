@@ -55,4 +55,9 @@ class Event extends Model
     {
         return $this->hasMany(Shift::class);
     }
+
+    public function transportGroups(): HasMany
+    {
+        return $this->hasMany(TransportGroup::class);
+    }
 }
