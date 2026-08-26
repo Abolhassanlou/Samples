@@ -8,10 +8,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Authentication\Models\User;
 
 /**
- * MVP scope: `type` is always 'direct' right now — exactly two
- * participants. `group` and `broadcast` (from the original design) are
- * deferred; the schema already allows for them later without a migration
- * change (just a different `type` value and more than 2 participants).
+ * `type` is 'direct' (exactly two participants), 'group' (three or more,
+ * with an optional `title`), or 'broadcast' — note "broadcast" is never
+ * actually stored as a conversation type here: a broadcast is implemented
+ * as fanning the same message out into several ordinary 'direct'
+ * conversations (one per recipient), so each worker only ever sees their
+ * own private reply thread with the sender — see
+ * ChatController::broadcast().
+ *
+ * `event_id` (nullable) links a group conversation to a Shift-module
+ * Event — set automatically by AssignmentObserver when workers are
+ * assigned to that event's shifts, so a team chat exists without any
+ * admin having to create it by hand.
  */
 class ChatConversation extends Model
 {
@@ -19,6 +27,8 @@ class ChatConversation extends Model
 
     protected $fillable = [
         'type',
+        'title',
+        'event_id',
     ];
 
     public function participants(): BelongsToMany

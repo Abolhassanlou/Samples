@@ -56,6 +56,72 @@ class ChatController extends Controller
         return $this->success(new ChatConversationResource($conversation->load('participants')), 'Conversation started', 201);
     }
 
+    /**
+     * Create a group conversation with three or more total participants
+     * (the requester + everyone in user_ids) and an optional title. Any
+     * participant can post and everyone sees every message — unlike
+     * broadcast(), which fans a message out into separate private threads.
+     */
+    public function startGroup(Request $request)
+    {
+        $data = $request->validate([
+            'user_ids' => ['required', 'array', 'min:2'],
+            'user_ids.*' => ['integer', 'exists:users,id'],
+            'title' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $conversation = ChatConversation::create([
+            'type' => 'group',
+            'title' => $data['title'] ?? null,
+        ]);
+
+        $conversation->participants()->attach(array_unique([$request->user()->id, ...$data['user_ids']]));
+
+        return $this->success(new ChatConversationResource($conversation->load('participants')), 'Group conversation started', 201);
+    }
+
+    /**
+     * A dispatcher sends one message to many recipients at once. This is
+     * NOT a shared thread — per the original design ("dispatcher
+     * broadcast to selected workers"), each recipient only ever sees a
+     * private reply thread with the sender, exactly like an ordinary
+     * direct conversation (reusing startDirect()'s get-or-create logic
+     * for each recipient) — workers never see each other's replies.
+     */
+    public function broadcast(Request $request)
+    {
+        $data = $request->validate([
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['integer', 'exists:users,id', 'different:'.$request->user()->id],
+            'message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $results = [];
+
+        foreach (array_unique($data['user_ids']) as $recipientId) {
+            $conversation = ChatConversation::where('type', 'direct')
+                ->whereHas('participants', fn ($q) => $q->where('users.id', $request->user()->id))
+                ->whereHas('participants', fn ($q) => $q->where('users.id', $recipientId))
+                ->first();
+
+            if (! $conversation) {
+                $conversation = ChatConversation::create(['type' => 'direct']);
+                $conversation->participants()->attach([$request->user()->id, $recipientId]);
+            }
+
+            $message = $conversation->messages()->create([
+                'sender_id' => $request->user()->id,
+                'message' => $data['message'],
+            ]);
+
+            $conversation->touch();
+
+            $results[] = ['conversation_id' => $conversation->id, 'recipient_id' => $recipientId, 'message_id' => $message->id];
+        }
+
+        return $this->success($results, 'Broadcast sent to '.count($results).' recipient(s)', 201);
+    }
+
     public function messages(Request $request, ChatConversation $conversation)
     {
         $this->authorizeParticipant($request, $conversation);

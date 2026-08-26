@@ -12,6 +12,8 @@ class ChatConversationResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type,
+            'title' => $this->title,
+            'event_id' => $this->event_id,
             'participants' => $this->whenLoaded('participants', fn () => $this->participants->map(fn ($p) => [
                 'id' => $p->id,
                 'name' => $p->name,

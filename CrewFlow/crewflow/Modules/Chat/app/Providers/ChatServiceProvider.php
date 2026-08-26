@@ -4,6 +4,8 @@ namespace Modules\Chat\Providers;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Modules\Chat\Observers\AssignmentObserver;
+use Modules\Shift\Models\Assignment;
 
 class ChatServiceProvider extends ServiceProvider
 {
@@ -15,6 +17,7 @@ class ChatServiceProvider extends ServiceProvider
     {
         $this->registerConfig();
         $this->registerRoutes();
+        $this->registerObservers();
         // Deliberately NOT calling loadMigrationsFrom() — see Authentication
         // module's README for why. Migrations live in `database/tenant-migrations`
         // and are picked up only by `php artisan tenants:migrate`.
@@ -45,5 +48,15 @@ class ChatServiceProvider extends ServiceProvider
         ])
             ->prefix('api')
             ->group(module_path($this->moduleName, 'routes/api.php'));
+    }
+
+    /**
+     * Shift has no idea this module exists — same "observe from the
+     * outside" pattern the Notification module uses on Shift/Assignment,
+     * and Transaction uses on Payment's WorkLog.
+     */
+    protected function registerObservers(): void
+    {
+        Assignment::observe(AssignmentObserver::class);
     }
 }
