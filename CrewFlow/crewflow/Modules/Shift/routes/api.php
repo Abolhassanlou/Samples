@@ -3,10 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Shift\Http\Controllers\Api\AssignmentController;
 use Modules\Shift\Http\Controllers\Api\CancellationRequestController;
+use Modules\Shift\Http\Controllers\Api\EventBranchAccessController;
 use Modules\Shift\Http\Controllers\Api\EventController;
+use Modules\Shift\Http\Controllers\Api\EventWorkerAccessController;
 use Modules\Shift\Http\Controllers\Api\ShiftController;
 use Modules\Shift\Http\Controllers\Api\ShiftInterestController;
 use Modules\Shift\Http\Controllers\Api\ShiftPositionController;
+use Modules\Shift\Http\Controllers\Api\ShiftQualificationController;
 use Modules\Shift\Http\Controllers\Api\ShiftRoleController;
 use Modules\Shift\Http\Controllers\Api\TransportGroupController;
 
@@ -37,7 +40,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('shifts/{shift}/positions', [ShiftPositionController::class, 'store']);
         Route::put('shifts/{shift}/positions/{position}', [ShiftPositionController::class, 'update']);
         Route::delete('shifts/{shift}/positions/{position}', [ShiftPositionController::class, 'destroy']);
+
+        Route::post('shifts/{shift}/qualifications', [ShiftQualificationController::class, 'store']);
+        Route::delete('shifts/{shift}/qualifications/{qualification}', [ShiftQualificationController::class, 'destroy']);
     });
+
+    Route::get('shifts/{shift}/qualifications', [ShiftQualificationController::class, 'index']);
 
     // Expressing/withdrawing interest: any worker, no special permission.
     Route::post('shifts/{shift}/interest', [ShiftInterestController::class, 'store']);
@@ -57,6 +65,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('cancellation-requests', [CancellationRequestController::class, 'index']);
         Route::post('cancellation-requests/{cancellationRequest}/approve', [CancellationRequestController::class, 'approve']);
         Route::post('cancellation-requests/{cancellationRequest}/reject', [CancellationRequestController::class, 'reject']);
+
+        Route::get('events/{event}/branch-access', [EventBranchAccessController::class, 'index']);
+        Route::post('events/{event}/branch-access', [EventBranchAccessController::class, 'store']);
+        Route::delete('events/{event}/branch-access/{branchAccess}', [EventBranchAccessController::class, 'destroy']);
+
+        Route::get('events/{event}/worker-access', [EventWorkerAccessController::class, 'index']);
+        Route::post('events/{event}/worker-access', [EventWorkerAccessController::class, 'store']);
+        Route::delete('events/{event}/worker-access/{workerAccess}', [EventWorkerAccessController::class, 'destroy']);
     });
 
     // A worker requesting cancellation of their own assignment — no

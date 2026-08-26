@@ -60,4 +60,14 @@ class Event extends Model
     {
         return $this->hasMany(TransportGroup::class);
     }
+
+    public function branchAccess(): HasMany
+    {
+        return $this->hasMany(EventBranchAccess::class);
+    }
+
+    public function workerAccess(): HasMany
+    {
+        return $this->hasMany(EventWorkerAccess::class);
+    }
 }

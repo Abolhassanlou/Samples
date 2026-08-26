@@ -1,7 +1,7 @@
 {
     "name": "Shift",
     "alias": "shift",
-    "description": "The actual work/shift a company posts, workers express interest in, and a dispatcher assigns. Complete: Event grouping, dynamic company-defined ShiftRole/ShiftPosition (role-specific headcounts), waitlisting, formal CancellationRequest (24h-notice rule), and TransportGroup (per-vehicle driver+passengers for an Event).",
+    "description": "The actual work/shift a company posts, workers express interest in, and a dispatcher assigns. Complete: Event grouping, dynamic company-defined ShiftRole/ShiftPosition, waitlisting, formal CancellationRequest, TransportGroup, and qualification+branch-based shift visibility (a Worker only ever sees shifts they're both permitted to see and qualified for; Dispatchers/Admins always see everything).",
     "keywords": [],
     "priority": 7,
     "providers": [

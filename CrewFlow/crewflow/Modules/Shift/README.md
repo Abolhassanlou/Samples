@@ -25,7 +25,7 @@ The actual work a company posts, workers express interest in, and a dispatcher a
 ## Install
 
 1. Place this folder at `Modules/Shift`, `php artisan module:enable Shift`, `composer dump-autoload`.
-2. Depends on **Organization** (`Branch`), **Client** (`Client`), and **Authentication** (`User`) — install those first.
+2. Depends on **Organization** (`Branch`), **Client** (`Client`), **Authentication** (`User`), and **Employee** (`WorkerProfile`, `WorkerQualification`, `Qualification` — for shift visibility) — install those first.
 3. Migrations live in `database/tenant-migrations/` — same reasoning as every other tenant-scoped module (see Authentication's README).
 
 ## Permissions used (already seeded by Authorization)
@@ -82,7 +82,43 @@ DELETE /api/events/{event}/transport-groups/{transportGroup}                    
 
 `client_billing_rate` on `ShiftResource` is only returned to users with `shifts.dispatch` — Workers never see it, matching the project's rule that worker pay rate and client billing rate must never be visible to the same audience.
 
-## Still open (not part of the original 13-module deferred list, but worth knowing)
+## Shift visibility (qualification + branch access)
 
-- `shift_visibility_mode` (from `CompanySettings`) isn't yet applied — every authenticated user currently sees every shift regardless of qualification.
+A Dispatcher/Admin (`shifts.dispatch`) always sees every Shift, unfiltered — full visibility is required to manage. A plain Worker only sees a Shift if **both** hold (see `Services/ShiftVisibility.php`):
+
+1. **Access** — either:
+   - the Shift's own `branch_id` is the worker's home branch (`WorkerProfile.home_branch_id`, from Employee), **or**
+   - the worker has been explicitly activated for that Shift's Event via `EventWorkerAccess`.
+2. **Qualification** — the worker holds *every* qualification the Shift requires (`ShiftQualification`, referencing Employee's `Qualification` catalog), **unless the Shift itself has `qualification_override: true`** — a deliberate escape hatch for staffing shortages (e.g. an unpopular night shift nobody with the right qualification wants to take). When set, this skips the qualification check entirely for that one Shift; access (branch/event) is still required either way. A Shift with no requirements at all is visible to anyone who passes the access check regardless.
+
+Set it when creating/editing a shift: `POST /api/shifts { ..., qualification_override: true }` (`shifts.create`, same as any other shift field).
+
+Failing either check **hides** the shift entirely (404 on direct access, absent from the list) — it is never shown disabled/greyed out, per this project's explicit design choice. This applies to `GET /api/shifts`, `GET /api/shifts/{shift}`, and `POST /api/shifts/{shift}/interest` alike.
+
+### Cross-branch access is two steps, on purpose
+
+By default, only a Shift's own branch can see it. To let workers from **another** branch in on an Event:
+
+1. Someone with `shifts.dispatch` grants that whole branch visibility: `POST /api/events/{event}/branch-access { branch_id }`. This alone does **not** show anything to any worker yet.
+2. That branch's own admin/dispatcher then activates specific workers, one at a time: `POST /api/events/{event}/worker-access { worker_id }`. This is rejected with a 422 if the worker's home branch hasn't been granted access in step 1 first.
+
+### Endpoints (visibility-related)
+
+```
+GET    /api/shifts/{shift}/qualifications
+POST   /api/shifts/{shift}/qualifications           { qualification_id }                [shifts.create]
+DELETE /api/shifts/{shift}/qualifications/{qualification}                                [shifts.create]
+
+GET    /api/events/{event}/branch-access
+POST   /api/events/{event}/branch-access            { branch_id }                        [shifts.dispatch]
+DELETE /api/events/{event}/branch-access/{branchAccess}                                   [shifts.dispatch]
+
+GET    /api/events/{event}/worker-access
+POST   /api/events/{event}/worker-access            { worker_id }                        [shifts.dispatch]
+DELETE /api/events/{event}/worker-access/{workerAccess}                                   [shifts.dispatch]
+```
+
+## Still open
+
 - Waitlisted workers aren't auto-promoted to `pending` when a slot reopens; a dispatcher currently has to notice and assign manually.
+- `EventWorkerAccessController` checks that the worker's *branch* was granted access, but doesn't separately verify the acting dispatcher actually belongs to that branch (Organization's `UserBranch`) — anyone with `shifts.dispatch` company-wide can activate any worker today. Tightening this to branch-scoped dispatchers is a possible future refinement.

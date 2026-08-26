@@ -41,6 +41,8 @@ class ShiftRequest extends FormRequest
 
             'starts_at' => [$isCreating ? 'required' : 'sometimes', 'date'],
             'ends_at' => [$isCreating ? 'required' : 'sometimes', 'date', 'after:starts_at'],
+
+            'qualification_override' => ['sometimes', 'boolean'],
         ];
     }
 }
