@@ -9,6 +9,7 @@ use Modules\Shift\Http\Resources\ShiftInterestResource;
 use Modules\Shift\Models\Shift;
 use Modules\Shift\Models\ShiftInterest;
 use Modules\Shift\Models\ShiftPosition;
+use Modules\Shift\Services\ShiftVisibility;
 
 class ShiftInterestController extends Controller
 {
@@ -39,6 +40,11 @@ class ShiftInterestController extends Controller
      */
     public function store(Request $request, Shift $shift)
     {
+        if (! $request->user()->can('shifts.dispatch')) {
+            $visible = ShiftVisibility::scopeFor(Shift::where('id', $shift->id), $request->user())->exists();
+            abort_unless($visible, 404);
+        }
+
         $data = $request->validate([
             'shift_position_id' => ['nullable', 'integer', 'exists:shift_positions,id'],
         ]);
