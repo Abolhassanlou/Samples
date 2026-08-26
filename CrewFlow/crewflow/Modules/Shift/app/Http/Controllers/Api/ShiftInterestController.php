@@ -8,58 +8,94 @@ use Modules\Core\Traits\ApiResponse;
 use Modules\Shift\Http\Resources\ShiftInterestResource;
 use Modules\Shift\Models\Shift;
 use Modules\Shift\Models\ShiftInterest;
+use Modules\Shift\Models\ShiftPosition;
 
 class ShiftInterestController extends Controller
 {
     use ApiResponse;
 
     /**
-     * Dispatcher's view of who's interested in a shift, before deciding
-     * who to assign. Requires shifts.dispatch (route-level).
+     * Dispatcher's view of who's interested (pending) or waiting
+     * (waitlisted) for a shift, before deciding who to assign. Requires
+     * shifts.dispatch (route-level).
      */
     public function index(Shift $shift)
     {
         $interests = $shift->interests()
-            ->with('worker')
-            ->where('status', 'pending')
+            ->with(['worker', 'position.role'])
+            ->whereIn('status', ['pending', 'waitlisted'])
             ->get();
 
         return $this->success(ShiftInterestResource::collection($interests));
     }
 
     /**
-     * A worker expresses interest. Free to do any time before the shift
-     * is full — no permission required beyond being an authenticated
-     * company user.
+     * A worker expresses interest — optionally in a specific role, if the
+     * shift has positions. No permission required beyond being an
+     * authenticated company user. If the shift/position is already full,
+     * this still records the interest, just as "waitlisted" instead of
+     * outright rejecting it — the worker is queued in case a spot opens
+     * up (e.g. someone else's assignment gets cancelled).
      */
     public function store(Request $request, Shift $shift)
     {
-        if ($shift->isFull()) {
-            return $this->error('This shift is already full.', 422);
+        $data = $request->validate([
+            'shift_position_id' => ['nullable', 'integer', 'exists:shift_positions,id'],
+        ]);
+
+        $position = null;
+        $isFull = false;
+
+        if ($shift->hasPositions()) {
+            if (empty($data['shift_position_id'])) {
+                return $this->error('This shift has specific roles — shift_position_id is required.', 422);
+            }
+
+            $position = ShiftPosition::where('id', $data['shift_position_id'])->where('shift_id', $shift->id)->first();
+
+            if (! $position) {
+                return $this->error('That position does not belong to this shift.', 422);
+            }
+
+            $isFull = $position->isFull();
+        } else {
+            $isFull = $shift->isFull();
         }
 
-        $interest = ShiftInterest::firstOrCreate(
-            ['shift_id' => $shift->id, 'worker_id' => $request->user()->id],
-            ['expressed_at' => now(), 'status' => 'pending']
-        );
+        $status = $isFull ? 'waitlisted' : 'pending';
 
-        if ($interest->status === 'withdrawn') {
-            $interest->update(['status' => 'pending', 'expressed_at' => now(), 'withdrawn_at' => null]);
+        $interest = ShiftInterest::where('shift_id', $shift->id)
+            ->where('worker_id', $request->user()->id)
+            ->where('shift_position_id', $position?->id)
+            ->first();
+
+        if ($interest) {
+            $interest->update(['status' => $status, 'expressed_at' => now(), 'withdrawn_at' => null]);
+        } else {
+            $interest = ShiftInterest::create([
+                'shift_id' => $shift->id,
+                'shift_position_id' => $position?->id,
+                'worker_id' => $request->user()->id,
+                'expressed_at' => now(),
+                'status' => $status,
+            ]);
         }
 
-        return $this->success(new ShiftInterestResource($interest), 'Interest expressed', 201);
+        $message = $isFull ? 'Added to the waitlist — this shift/position is currently full.' : 'Interest expressed';
+
+        return $this->success(new ShiftInterestResource($interest->load('position.role')), $message, 201);
     }
 
     /**
      * Free withdrawal, any time before a dispatcher converts this interest
-     * into an Assignment (see business-model doc, rule 9 — full
-     * CancellationRequest flow after assignment is a later pass).
+     * into an Assignment. Works whether the interest is "pending" or
+     * "waitlisted".
      */
     public function destroy(Request $request, Shift $shift)
     {
         $interest = ShiftInterest::where('shift_id', $shift->id)
             ->where('worker_id', $request->user()->id)
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'waitlisted'])
             ->first();
 
         if (! $interest) {

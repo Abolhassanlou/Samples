@@ -1,7 +1,7 @@
 {
     "name": "Shift",
     "alias": "shift",
-    "description": "The actual work/shift a company posts, workers express interest in, and a dispatcher assigns. Now includes Event grouping and dynamic, company-defined ShiftRole/ShiftPosition (role-specific headcounts per shift, e.g. 2 drivers + 3 guards). Still deferred: TransportGroup, formal CancellationRequest, waitlist.",
+    "description": "The actual work/shift a company posts, workers express interest in, and a dispatcher assigns. Complete: Event grouping, dynamic company-defined ShiftRole/ShiftPosition (role-specific headcounts), waitlisting, formal CancellationRequest (24h-notice rule), and TransportGroup (per-vehicle driver+passengers for an Event).",
     "keywords": [],
     "priority": 7,
     "providers": [
