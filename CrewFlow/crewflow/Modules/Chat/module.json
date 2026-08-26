@@ -1,7 +1,7 @@
 {
     "name": "Chat",
     "alias": "chat",
-    "description": "In-app messaging. MVP scope: direct 1:1 conversations only (e.g. worker <-> dispatcher/admin). Group and broadcast conversations from the original design are deferred to a later pass.",
+    "description": "In-app messaging: direct 1:1 conversations, group conversations (3+ participants), dispatcher broadcast (fanned out to private direct threads), and automatic per-Event team chat (created/maintained by observing Shift's Assignment model — Shift never depends on this module).",
     "keywords": [],
     "priority": 10,
     "providers": [
