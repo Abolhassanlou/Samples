@@ -46,6 +46,8 @@ Role assignment (`POST/DELETE /api/users/{user}/roles`) and everything role/perm
 
 ## Architectural notes
 
+**`personnel_number`**: an auto-assigned, sequential (per company) identifier like `"0007"`, set automatically the moment a `User` is created (see `User::booted()` — a `creating` event, so both `AuthController::register()` and Tenancy's `CompanyRegistrationController` get it for free, no extra code needed in either). It exists purely so an admin can tell apart two workers who happen to share a name — it is **not** a login credential and never needs to be typed in by anyone.
+
 - **`User` is intentionally lean:** worker-specific fields (`employment_type`, `hourly_rate`, home branch) belong to a `WorkerProfile` model in the **Employee** module, not here — keeps this module from needing to depend on Organization.
 - **`api` guard:** this project is SPA + Sanctum, so all permission checks use the `api` guard.
 - **Routes require a tenant subdomain:** wrapped in `InitializeTenancyBySubdomain` + `PreventAccessFromCentralDomains`.

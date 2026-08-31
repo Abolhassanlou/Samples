@@ -30,6 +30,7 @@ class User extends Authenticatable
     protected $guard_name = 'api';
 
     protected $fillable = [
+        'personnel_number',
         'name',
         'email',
         'phone',
@@ -47,5 +48,23 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Auto-assigned, sequential per company (this tenant's own database),
+     * zero-padded to 4 digits (e.g. "0007") — exists purely so an admin
+     * can tell apart two workers who happen to share a name. Uses
+     * max(id)+1 rather than count()+1 so it never collides after a user
+     * is deleted. Only assigned if the caller didn't already supply one
+     * (e.g. a future "reassign personnel number" admin action).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            if (! $user->personnel_number) {
+                $next = (int) (static::max('id') ?? 0) + 1;
+                $user->personnel_number = str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+            }
+        });
     }
 }
