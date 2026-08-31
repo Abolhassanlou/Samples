@@ -52,4 +52,17 @@ GET    /api/documents/{document}/download       (owner or documents.review)
 
 GET    /api/documents/pending                                                                [documents.review]
 POST   /api/documents/{document}/review         { decision: approved|rejected, rejection_reason?, qualification_id? }   [documents.review]
+
+GET    /api/workers                             ?search=&qualification_id=&branch_id=&day_of_week=&time=   [shifts.dispatch]
 ```
+
+## The `/api/workers` directory (dispatcher-facing, not the same thing as `/api/users`)
+
+Authentication's `GET /api/users` (gated by `users.manage`) is an access-control tool — who exists, what roles do they have. `GET /api/workers` here is a *different* concern: finding the right person to staff a shift. It's gated by `shifts.dispatch` instead, specifically so a **Dispatcher** (not just Company Admin) can use it. Supports filtering by any combination of:
+
+- `search` — matches name, email, or personnel number
+- `qualification_id` — only workers holding that qualification
+- `branch_id` — only workers whose home branch matches
+- `day_of_week` (0=Sunday..6=Saturday) + `time` (`HH:MM`) — only workers with an availability slot covering that day and time (both params required together)
+
+Returns each worker's profile, home branch name, full qualification list, and full availability list in one call — avoids the N+1 problem of calling the existing per-user endpoints (`/api/users/{user}/profile`, etc.) once per worker.

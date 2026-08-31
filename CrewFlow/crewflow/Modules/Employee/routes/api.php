@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Employee\Http\Controllers\Api\QualificationController;
 use Modules\Employee\Http\Controllers\Api\WorkerAvailabilityController;
+use Modules\Employee\Http\Controllers\Api\WorkerDirectoryController;
 use Modules\Employee\Http\Controllers\Api\WorkerDocumentController;
 use Modules\Employee\Http\Controllers\Api\WorkerProfileController;
 use Modules\Employee\Http\Controllers\Api\WorkerQualificationController;
@@ -14,6 +15,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('qualifications', [QualificationController::class, 'store']);
         Route::put('qualifications/{qualification}', [QualificationController::class, 'update']);
         Route::delete('qualifications/{qualification}', [QualificationController::class, 'destroy']);
+    });
+
+    // The dispatcher-facing search/filter directory (by qualification,
+    // branch, availability) — distinct from Authentication's Users
+    // listing. shifts.dispatch, not users.manage, so a Dispatcher (not
+    // just Company Admin) can find who's free and qualified to staff a shift.
+    Route::middleware('permission:shifts.dispatch')->group(function () {
+        Route::get('workers', [WorkerDirectoryController::class, 'index']);
     });
 
     // A worker's own profile / qualifications / availability.
