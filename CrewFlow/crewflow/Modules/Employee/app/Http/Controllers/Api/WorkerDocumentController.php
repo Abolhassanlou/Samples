@@ -35,10 +35,12 @@ class WorkerDocumentController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'document_type' => ['required', 'string', 'max:255'],
+            'document_type' => ['required', 'in:identity_document,residence_permit,work_permit,social_security_card,driving_license,criminal_record,certificate,other'],
             'file' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png'],
+            'document_number' => ['nullable', 'string', 'max:255'],
+            'issued_at' => ['nullable', 'date'],
             'visa_type' => ['nullable', 'string', 'max:255'],
-            'visa_expiry_date' => ['nullable', 'date'],
+            'expires_at' => ['nullable', 'date'],
         ]);
 
         $path = $request->file('file')->store('worker-documents', 'local');
@@ -47,8 +49,10 @@ class WorkerDocumentController extends Controller
             'worker_id' => $request->user()->id,
             'document_type' => $data['document_type'],
             'file_path' => $path,
+            'document_number' => $data['document_number'] ?? null,
+            'issued_at' => $data['issued_at'] ?? null,
             'visa_type' => $data['visa_type'] ?? null,
-            'visa_expiry_date' => $data['visa_expiry_date'] ?? null,
+            'expires_at' => $data['expires_at'] ?? null,
             'review_status' => 'pending',
         ]);
 

@@ -9,15 +9,30 @@ class WorkerDirectoryResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $companyWorker = $this->companyWorker;
+        $activeContract = $companyWorker?->contracts->firstWhere('status', 'active');
+
         return [
             'user_id' => $this->user_id,
+            'worker_id' => $this->id,
             'personnel_number' => $this->user->personnel_number,
+            'employee_number' => $companyWorker?->employee_number,
             'name' => $this->user->name,
             'email' => $this->user->email,
             'phone' => $this->user->phone,
-            'employment_type' => $this->employment_type,
-            'home_branch_id' => $this->home_branch_id,
-            'home_branch_name' => $this->homeBranch?->name,
+            'status' => $this->status,
+            'work_authorization_status' => $this->work_authorization_status,
+            'home_branch_id' => $companyWorker?->home_branch_id,
+            'home_branch_name' => $companyWorker?->homeBranch?->name,
+            'works_night_shifts' => (bool) $companyWorker?->works_night_shifts,
+            'active_contract' => $activeContract ? [
+                'contract_type' => $activeContract->contract_type,
+                'work_time_model' => $activeContract->work_time_model,
+                'is_marginal' => $activeContract->is_marginal,
+                'weekly_hours' => $activeContract->weekly_hours,
+                'is_permanent' => $activeContract->isPermanent(),
+                'end_date' => $activeContract->end_date,
+            ] : null,
             'qualifications' => $this->qualifications->map(fn ($wq) => [
                 'id' => $wq->qualification_id,
                 'name' => $wq->qualification?->name,

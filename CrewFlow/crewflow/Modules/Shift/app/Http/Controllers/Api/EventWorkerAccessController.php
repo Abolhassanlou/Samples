@@ -5,7 +5,8 @@ namespace Modules\Shift\Http\Controllers\Api;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Core\Traits\ApiResponse;
-use Modules\Employee\Models\WorkerProfile;
+use Modules\Employee\Models\CompanyWorker;
+use Modules\Employee\Models\Worker;
 use Modules\Shift\Models\Event;
 use Modules\Shift\Models\EventWorkerAccess;
 
@@ -37,7 +38,10 @@ class EventWorkerAccessController extends Controller
             'worker_id' => ['required', 'integer', 'exists:users,id'],
         ]);
 
-        $workerHomeBranchId = WorkerProfile::where('user_id', $data['worker_id'])->value('home_branch_id');
+        $workerRecord = Worker::where('user_id', $data['worker_id'])->first();
+        $workerHomeBranchId = $workerRecord
+            ? CompanyWorker::where('worker_id', $workerRecord->id)->value('home_branch_id')
+            : null;
 
         $allowedBranchIds = $event->branchAccess()->pluck('branch_id')->push($event->branch_id);
 

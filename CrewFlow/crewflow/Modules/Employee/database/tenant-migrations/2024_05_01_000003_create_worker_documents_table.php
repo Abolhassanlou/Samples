@@ -11,11 +11,13 @@ return new class extends Migration
         Schema::create('worker_documents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('worker_id')->constrained('users')->cascadeOnDelete();
-            $table->string('document_type'); // id_card | certificate | visa | contract | ...
+            $table->string('document_type'); // identity_document | residence_permit | work_permit | social_security_card | driving_license | criminal_record | certificate | other
             $table->string('file_path');
+            $table->string('document_number')->nullable();
+            $table->date('issued_at')->nullable();
             $table->string('visa_type')->nullable();
-            $table->date('visa_expiry_date')->nullable();
-            $table->string('review_status')->default('pending'); // pending | approved | rejected
+            $table->date('expires_at')->nullable(); // was visa_expiry_date — generalized, not every document is a visa
+            $table->string('review_status')->default('pending'); // pending | approved | rejected | expired
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->dateTime('reviewed_at')->nullable();
             $table->string('rejection_reason')->nullable();

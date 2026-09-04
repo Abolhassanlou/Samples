@@ -14,8 +14,10 @@ class WorkerDocument extends Model
         'worker_id',
         'document_type',
         'file_path',
+        'document_number',
+        'issued_at',
         'visa_type',
-        'visa_expiry_date',
+        'expires_at',
         'review_status',
         'reviewed_by',
         'reviewed_at',
@@ -25,7 +27,8 @@ class WorkerDocument extends Model
     protected function casts(): array
     {
         return [
-            'visa_expiry_date' => 'date',
+            'issued_at' => 'date',
+            'expires_at' => 'date',
             'reviewed_at' => 'datetime',
         ];
     }

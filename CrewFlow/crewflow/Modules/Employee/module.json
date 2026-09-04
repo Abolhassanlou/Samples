@@ -1,7 +1,7 @@
 {
     "name": "Employee",
     "alias": "employee",
-    "description": "Worker profile (employment type, rate, home branch), documents with a mandatory human review workflow, qualifications, and weekly availability. Merges the former Workforce+Documents+Qualifications concepts.",
+    "description": "Three-layer worker model: Worker (personal facts + work authorization), CompanyWorker (the employment relationship — status, branch, employee number), and EmploymentContract (full contract history — a worker can have many over time). Plus documents with mandatory human review, qualifications, and weekly availability.",
     "keywords": [],
     "priority": 6,
     "providers": [

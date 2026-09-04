@@ -15,6 +15,9 @@ const errorMessage = ref('')
 const search = ref('')
 const qualificationId = ref('')
 const branchId = ref('')
+const workTimeModel = ref('')
+const nightShift = ref(false)
+const eligibleOnly = ref(false)
 const dayOfWeek = ref('')
 const time = ref('')
 
@@ -35,6 +38,9 @@ async function loadWorkers() {
       search: search.value,
       qualificationId: qualificationId.value,
       branchId: branchId.value,
+      workTimeModel: workTimeModel.value,
+      nightShift: nightShift.value,
+      eligibleOnly: eligibleOnly.value,
       dayOfWeek: dayOfWeek.value,
       time: hasTimeFilter.value ? time.value : '',
     })
@@ -52,10 +58,13 @@ onMounted(async () => {
 
 // Re-query whenever a filter changes, except while the day/time pair is
 // half-filled (avoids firing a request with only one of the two set).
-watch([search, qualificationId, branchId, dayOfWeek, time], () => {
-  if (timeFilterIncomplete.value) return
-  loadWorkers()
-})
+watch(
+  [search, qualificationId, branchId, workTimeModel, nightShift, eligibleOnly, dayOfWeek, time],
+  () => {
+    if (timeFilterIncomplete.value) return
+    loadWorkers()
+  },
+)
 
 function formatTime(value) {
   return value?.slice(0, 5) ?? ''
@@ -64,14 +73,19 @@ function formatTime(value) {
 
 <template>
   <AppShell>
-    <h1 class="page-title">Workers</h1>
-    <p class="page-lead">
-      Find who's qualified, in the right branch, and free at a given time — for staffing a shift.
-    </p>
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Workers</h1>
+        <p class="page-lead">
+          Find who's qualified, in the right branch, and free at a given time — for staffing a shift.
+        </p>
+      </div>
+      <RouterLink to="/workers/invite" class="add-button">+ Invite worker</RouterLink>
+    </div>
 
     <section class="panel">
       <div class="filters">
-        <input v-model="search" type="search" class="filter-input" placeholder="Search name, email, personnel #…" />
+        <input v-model="search" type="search" class="filter-input" placeholder="Search name, email, personnel/employee #…" />
 
         <select v-model="qualificationId" class="filter-input">
           <option value="">Any qualification</option>
@@ -82,6 +96,23 @@ function formatTime(value) {
           <option value="">Any branch</option>
           <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
         </select>
+
+        <select v-model="workTimeModel" class="filter-input">
+          <option value="">Any work time model</option>
+          <option value="full_time">Vollzeit</option>
+          <option value="part_time">Teilzeit</option>
+          <option value="casual">Fallweise Beschäftigung</option>
+        </select>
+
+        <label class="night-filter">
+          <input type="checkbox" v-model="nightShift" />
+          Works night shifts
+        </label>
+
+        <label class="night-filter">
+          <input type="checkbox" v-model="eligibleOnly" />
+          Assignable right now
+        </label>
 
         <select v-model="dayOfWeek" class="filter-input">
           <option value="">Any day</option>
@@ -101,16 +132,30 @@ function formatTime(value) {
     <section v-else class="panel results-panel">
       <p class="result-count">{{ workers.length }} worker{{ workers.length === 1 ? '' : 's' }} found</p>
 
-      <article v-for="worker in workers" :key="worker.user_id" class="worker-card">
+      <RouterLink
+        v-for="worker in workers"
+        :key="worker.user_id"
+        :to="`/workers/${worker.user_id}`"
+        class="worker-card"
+      >
         <header class="worker-card-header">
           <div>
             <span class="worker-name">{{ worker.name }}</span>
-            <span class="worker-personnel">{{ worker.personnel_number }}</span>
+            <span class="worker-personnel">{{ worker.employee_number || worker.personnel_number }}</span>
+            <span v-if="worker.works_night_shifts" class="night-badge">🌙 Night shifts</span>
+            <span v-if="worker.status !== 'active'" class="status-badge">{{ worker.status }}</span>
           </div>
           <span class="worker-branch">{{ worker.home_branch_name || 'No branch set' }}</span>
         </header>
 
-        <p class="worker-contact">{{ worker.email }} · {{ worker.phone || 'no phone' }}</p>
+        <p class="worker-contact">
+          {{ worker.email }} · {{ worker.phone || 'no phone' }}
+          <template v-if="worker.active_contract">
+            · {{ worker.active_contract.work_time_model }} ({{ worker.active_contract.contract_type }})
+            <span v-if="worker.active_contract.is_marginal">· marginal</span>
+          </template>
+          <span v-else class="no-contract"> · no active contract</span>
+        </p>
 
         <div class="worker-quals">
           <span v-if="worker.qualifications.length === 0" class="no-quals">No qualifications on file</span>
@@ -123,7 +168,7 @@ function formatTime(value) {
             {{ DAY_LABELS[slot.day_of_week].slice(0, 3) }} {{ formatTime(slot.start_time) }}–{{ formatTime(slot.end_time) }}
           </span>
         </div>
-      </article>
+      </RouterLink>
 
       <p v-if="workers.length === 0" class="empty-note">No workers match these filters.</p>
     </section>
@@ -135,6 +180,29 @@ function formatTime(value) {
   font-family: var(--font-display);
   font-weight: 700;
   margin: 0 0 0.35rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.add-button {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  color: var(--color-ink);
+  background: var(--color-amber);
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.add-button:hover {
+  background: var(--color-amber-dark);
 }
 
 .page-lead {
@@ -172,6 +240,36 @@ function formatTime(value) {
   outline: none;
 }
 
+.night-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  padding: 0 0.3rem;
+}
+
+.night-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: rgba(224, 151, 58, 0.25);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  margin-left: 0.5rem;
+}
+
+.status-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-danger);
+  background: rgba(181, 83, 63, 0.12);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  margin-left: 0.5rem;
+}
+
 .filter-hint {
   margin: 0.6rem 0 0;
   font-size: 0.8rem;
@@ -197,10 +295,18 @@ function formatTime(value) {
 }
 
 .worker-card {
+  display: block;
   border: 1px solid var(--color-line);
   border-radius: 8px;
   padding: 1rem 1.1rem;
   margin-bottom: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.worker-card:hover {
+  border-color: var(--color-amber);
 }
 
 .worker-card-header {
@@ -229,6 +335,10 @@ function formatTime(value) {
   font-size: 0.82rem;
   color: var(--color-slate);
   margin: 0.3rem 0 0.75rem;
+}
+
+.no-contract {
+  color: var(--color-danger);
 }
 
 .worker-quals,
