@@ -15,6 +15,7 @@ class EmployeeServiceProvider extends ServiceProvider
     {
         $this->registerConfig();
         $this->registerRoutes();
+        $this->registerViews();
         // Deliberately NOT calling loadMigrationsFrom() — see Authentication
         // module's README for why. Migrations live in `database/tenant-migrations`
         // and are picked up only by `php artisan tenants:migrate`.
@@ -45,5 +46,10 @@ class EmployeeServiceProvider extends ServiceProvider
         ])
             ->prefix('api')
             ->group(module_path($this->moduleName, 'routes/api.php'));
+    }
+
+    protected function registerViews(): void
+    {
+        $this->loadViewsFrom(module_path($this->moduleName, 'resources/views'), $this->moduleNameLower);
     }
 }

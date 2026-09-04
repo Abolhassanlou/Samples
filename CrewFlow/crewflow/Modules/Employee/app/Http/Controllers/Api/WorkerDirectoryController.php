@@ -6,15 +6,16 @@ use Illuminate\Http\Request;
 use Modules\Core\Http\Controllers\Controller;
 use Modules\Core\Traits\ApiResponse;
 use Modules\Employee\Http\Resources\WorkerDirectoryResource;
-use Modules\Employee\Models\WorkerProfile;
+use Modules\Employee\Models\Worker;
 
 /**
  * A dispatcher-facing search/filter directory — deliberately distinct
  * from Authentication's Users listing (an access-control concern gated
  * by users.manage, usually admin-only). This is about finding the right
- * worker to staff a shift: by qualification, home branch, and
- * availability at a specific day/time. Gated by shifts.dispatch, so
- * both Company Admin and Dispatcher can use it — see routes/api.php.
+ * worker to staff a shift: by qualification, home branch, contract
+ * terms, and availability at a specific day/time. Gated by
+ * shifts.dispatch, so both Company Admin and Dispatcher can use it —
+ * see routes/api.php.
  */
 class WorkerDirectoryController extends Controller
 {
@@ -22,11 +23,49 @@ class WorkerDirectoryController extends Controller
 
     public function index(Request $request)
     {
-        $query = WorkerProfile::query()
-            ->with(['user', 'homeBranch', 'qualifications.qualification', 'availability']);
+        $query = Worker::query()
+            ->with(['user', 'companyWorker.homeBranch', 'companyWorker.contracts', 'qualifications.qualification', 'availability']);
 
         if ($request->filled('branch_id')) {
-            $query->where('home_branch_id', $request->integer('branch_id'));
+            $query->whereHas('companyWorker', function ($q) use ($request) {
+                $q->where('home_branch_id', $request->integer('branch_id'));
+            });
+        }
+
+        if ($request->boolean('night_shift')) {
+            $query->whereHas('companyWorker', function ($q) {
+                $q->where('works_night_shifts', true);
+            });
+        }
+
+        if ($request->filled('contract_type') || $request->filled('work_time_model')) {
+            $query->whereHas('companyWorker.contracts', function ($q) use ($request) {
+                $q->where('status', 'active');
+                if ($request->filled('contract_type')) {
+                    $q->where('contract_type', $request->string('contract_type'));
+                }
+                if ($request->filled('work_time_model')) {
+                    $q->where('work_time_model', $request->string('work_time_model'));
+                }
+            });
+        }
+
+        // Only workers who are actually assignable right now: active
+        // employment relationship, an active (non-expired) contract, and
+        // valid (or not-required) work authorization — the same rule
+        // Shift's AssignmentController enforces at the point of assignment.
+        if ($request->boolean('eligible')) {
+            $query->where('status', 'active')
+                ->whereIn('work_authorization_status', ['valid', 'not_required'])
+                ->whereHas('companyWorker', function ($q) {
+                    $q->where('status', 'active')
+                        ->whereHas('contracts', function ($c) {
+                            $c->where('status', 'active')
+                                ->where(function ($d) {
+                                    $d->whereNull('end_date')->orWhereDate('end_date', '>=', now()->toDateString());
+                                });
+                        });
+                });
         }
 
         if ($request->filled('qualification_id')) {
@@ -52,6 +91,8 @@ class WorkerDirectoryController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('personnel_number', 'like', "%{$search}%");
+            })->orWhereHas('companyWorker', function ($q) use ($search) {
+                $q->where('employee_number', 'like', "%{$search}%");
             });
         }
 

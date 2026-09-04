@@ -4,7 +4,8 @@ namespace Modules\Shift\Services;
 
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Authentication\Models\User;
-use Modules\Employee\Models\WorkerProfile;
+use Modules\Employee\Models\CompanyWorker;
+use Modules\Employee\Models\Worker;
 use Modules\Employee\Models\WorkerQualification;
 use Modules\Shift\Models\EventWorkerAccess;
 
@@ -36,7 +37,14 @@ class ShiftVisibility
 {
     public static function scopeFor(Builder $query, User $worker): Builder
     {
-        $homeBranchId = WorkerProfile::where('user_id', $worker->id)->value('home_branch_id');
+        // Worker's home branch now lives on CompanyWorker (the employment
+        // relationship), not directly on Worker (personal facts) — see
+        // the Employee module's README for the full worker/company_worker/
+        // employment_contract split.
+        $workerRecord = Worker::where('user_id', $worker->id)->first();
+        $homeBranchId = $workerRecord
+            ? CompanyWorker::where('worker_id', $workerRecord->id)->value('home_branch_id')
+            : null;
 
         $accessibleEventIds = EventWorkerAccess::where('worker_id', $worker->id)->pluck('event_id');
 

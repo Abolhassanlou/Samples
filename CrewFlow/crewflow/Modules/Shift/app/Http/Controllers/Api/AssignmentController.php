@@ -10,6 +10,7 @@ use Modules\Shift\Models\Assignment;
 use Modules\Shift\Models\Shift;
 use Modules\Shift\Models\ShiftInterest;
 use Modules\Shift\Models\ShiftPosition;
+use Modules\Shift\Services\WorkerEligibility;
 
 class AssignmentController extends Controller
 {
@@ -40,6 +41,10 @@ class AssignmentController extends Controller
             'shift_position_id' => ['nullable', 'integer', 'exists:shift_positions,id'],
             'transport_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        if (! WorkerEligibility::isAssignable($data['worker_id'])) {
+            return $this->error('This worker is not currently eligible for assignment — check their status, work authorization, and whether they have an active contract.', 422);
+        }
 
         $position = null;
 

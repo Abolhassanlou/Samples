@@ -25,8 +25,19 @@ The actual work a company posts, workers express interest in, and a dispatcher a
 ## Install
 
 1. Place this folder at `Modules/Shift`, `php artisan module:enable Shift`, `composer dump-autoload`.
-2. Depends on **Organization** (`Branch`), **Client** (`Client`), **Authentication** (`User`), and **Employee** (`WorkerProfile`, `WorkerQualification`, `Qualification` — for shift visibility) — install those first.
+2. Depends on **Organization** (`Branch`), **Client** (`Client`), **Authentication** (`User`), and **Employee** (`Worker`, `CompanyWorker`, `EmploymentContract`, `WorkerQualification`, `Qualification` — for shift visibility and assignment eligibility) — install those first.
 3. Migrations live in `database/tenant-migrations/` — same reasoning as every other tenant-scoped module (see Authentication's README).
+
+## Assignment eligibility (see `Services/WorkerEligibility.php`)
+
+`AssignmentController::store()` refuses to assign a worker who isn't currently eligible. All of these must hold — see Employee module's README for the full `Worker`/`CompanyWorker`/`EmploymentContract` split this checks across:
+
+1. `Worker.status` is `active`
+2. `work_authorization_status` is `valid` or `not_required`
+3. their `CompanyWorker.status` is `active`
+4. they have at least one `EmploymentContract` that's currently active (`status=active` and not past its `end_date`)
+
+A worker missing any of these gets a clear 422, not a silent failure. This is a hard gate at assignment time — separate from `ShiftVisibility` (which only controls whether a worker *sees* a shift at all).
 
 ## Permissions used (already seeded by Authorization)
 
