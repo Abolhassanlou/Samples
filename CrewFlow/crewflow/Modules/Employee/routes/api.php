@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Employee\Http\Controllers\Api\CompanyWorkerController;
+use Modules\Employee\Http\Controllers\Api\CustomDocumentTypeController;
+use Modules\Employee\Http\Controllers\Api\CustomFieldAnswerController;
+use Modules\Employee\Http\Controllers\Api\CustomFieldDefinitionController;
 use Modules\Employee\Http\Controllers\Api\EmploymentContractController;
 use Modules\Employee\Http\Controllers\Api\QualificationController;
 use Modules\Employee\Http\Controllers\Api\WorkerAvailabilityController;
@@ -35,21 +38,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('workers/invite', [WorkerInvitationController::class, 'store']);
     });
 
-    // A worker's own personal record / qualifications / availability.
+    // A worker's own personal record / qualifications / availability /
+    // contract history. Each of these checks self-or-admin internally
+    // (see the controllers) rather than a route-level permission, since
+    // "self" needs to pass regardless of what permissions that user has.
     Route::get('users/{user}/worker', [WorkerController::class, 'show']);
     Route::get('users/{user}/qualifications', [WorkerQualificationController::class, 'index']);
     Route::get('users/{user}/availability', [WorkerAvailabilityController::class, 'index']);
     Route::post('users/{user}/availability', [WorkerAvailabilityController::class, 'sync']);
+    Route::get('users/{user}/contracts', [EmploymentContractController::class, 'index']);
+    Route::get('users/{user}/contracts/{contract}/download', [EmploymentContractController::class, 'download']);
+    Route::put('users/{user}/worker', [WorkerController::class, 'update']);
 
-    // Editing personal record / employment relationship / contracts /
-    // granting-revoking qualifications: admin only.
+    // The worker's own online signature — deliberately outside the
+    // users.manage group below; self-only, checked inline in the
+    // controller (an admin can never sign on a worker's behalf).
+    Route::post('users/{user}/contracts/{contract}/sign', [EmploymentContractController::class, 'sign']);
+
+    // Editing employment relationship / contracts / granting-revoking
+    // qualifications: admin only.
     Route::middleware('permission:users.manage')->group(function () {
-        Route::put('users/{user}/worker', [WorkerController::class, 'update']);
-
         Route::get('users/{user}/employment', [CompanyWorkerController::class, 'show']);
         Route::put('users/{user}/employment', [CompanyWorkerController::class, 'update']);
 
-        Route::get('users/{user}/contracts', [EmploymentContractController::class, 'index']);
         Route::post('users/{user}/contracts', [EmploymentContractController::class, 'store']);
         Route::put('users/{user}/contracts/{contract}', [EmploymentContractController::class, 'update']);
     });
@@ -60,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Documents: a worker manages their own; review requires documents.review.
     Route::get('documents', [WorkerDocumentController::class, 'index']);
+    Route::get('documents/types', [WorkerDocumentController::class, 'types']);
     Route::post('documents', [WorkerDocumentController::class, 'store']);
     Route::get('documents/{document}/download', [WorkerDocumentController::class, 'download']);
 
@@ -67,4 +79,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('documents/pending', [WorkerDocumentController::class, 'pending']);
         Route::post('documents/{document}/review', [WorkerDocumentController::class, 'review']);
     });
+
+    // Company-configurable "questions" (Personal details / Skills) and
+    // extra document types — viewing open to any authenticated user
+    // (a worker needs the list to answer/pick from), managing needs
+    // users.manage. See CustomFieldDefinitionController's docblock.
+    Route::get('custom-fields', [CustomFieldDefinitionController::class, 'index']);
+    Route::get('custom-document-types', [CustomDocumentTypeController::class, 'index']);
+    Route::middleware('permission:users.manage')->group(function () {
+        Route::post('custom-fields', [CustomFieldDefinitionController::class, 'store']);
+        Route::put('custom-fields/{customField}', [CustomFieldDefinitionController::class, 'update']);
+
+        Route::post('custom-document-types', [CustomDocumentTypeController::class, 'store']);
+        Route::put('custom-document-types/{documentType}', [CustomDocumentTypeController::class, 'update']);
+    });
+
+    // A worker's own answers to those custom questions — self or users.manage.
+    Route::get('users/{user}/custom-field-answers', [CustomFieldAnswerController::class, 'index']);
+    Route::post('users/{user}/custom-field-answers', [CustomFieldAnswerController::class, 'sync']);
 });

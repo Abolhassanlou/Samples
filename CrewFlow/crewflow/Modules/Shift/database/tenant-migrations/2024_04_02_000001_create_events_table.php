@@ -23,6 +23,12 @@ return new class extends Migration
             $table->dateTime('starts_at');
             $table->dateTime('ends_at');
 
+            // When true, assigning a worker to any Shift under this
+            // Event auto-creates an Employee-module EmploymentContract
+            // (contract_type: assignment_notice — Überlassungsmitteilung)
+            // for them, pending signature. See Shift's AssignmentController.
+            $table->boolean('requires_contract')->default(false);
+
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
 
             $table->timestamps();

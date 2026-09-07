@@ -5,14 +5,92 @@ namespace Modules\Employee\Http\Controllers\Api;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Modules\Core\Traits\ApiResponse;
 use Modules\Employee\Http\Resources\WorkerDocumentResource;
+use Modules\Employee\Models\CustomDocumentType;
 use Modules\Employee\Models\WorkerDocument;
 use Modules\Employee\Models\WorkerQualification;
+
+/**
+ * FIXED_DOCUMENT_TYPES is the baseline every company gets for free —
+ * CustomDocumentType (see that model/controller) only ever ADDS to this
+ * list, never replaces it. Split into two categories, matching the
+ * worker portal's Profile layout:
+ *
+ * - "personal" — general identity documents, shown under My info.
+ *   Not tied to any specific job/event.
+ * - "work" — job/event-related uploads (e.g. a timesheet or an
+ *   event-specific certificate), shown under the top-level Documents
+ *   section, alongside employment contracts (a separate concept
+ *   entirely — see EmploymentContract).
+ */
 
 class WorkerDocumentController extends Controller
 {
     use ApiResponse;
+
+    private const FIXED_DOCUMENT_TYPES = [
+        'photo' => 'personal',
+        'passport' => 'personal',
+        'identity_document' => 'personal',
+        'bank_card' => 'personal',
+        'resume' => 'personal',
+        'driving_license' => 'personal',
+        'address_proof' => 'personal',
+        'residence_permit' => 'personal',
+        'social_security_card' => 'personal',
+        'criminal_record' => 'personal',
+
+        'work_permit' => 'work',
+        'certificate' => 'work',
+        'other' => 'work',
+    ];
+
+    /**
+     * The fixed baseline plus every active company-added type — the
+     * full set of valid values for document_type right now.
+     */
+    private function allowedDocumentTypes(): array
+    {
+        return array_merge(
+            array_keys(self::FIXED_DOCUMENT_TYPES),
+            CustomDocumentType::where('is_active', true)->pluck('key')->all()
+        );
+    }
+
+    /**
+     * The fixed baseline, with human-readable labels and each one's
+     * category — merge with GET /api/custom-document-types on the
+     * frontend for the full dropdown (filtered to the right category).
+     * Kept separate from that endpoint since the baseline isn't stored
+     * in the database at all (it's this const array).
+     */
+    public function types(Request $request)
+    {
+        $labels = [
+            'photo' => 'Photo',
+            'passport' => 'Passport',
+            'identity_document' => 'ID card',
+            'bank_card' => 'Bank card',
+            'resume' => 'Resume',
+            'driving_license' => 'Driving license',
+            'address_proof' => 'Proof of address',
+            'residence_permit' => 'Residence permit',
+            'social_security_card' => 'Social security card',
+            'criminal_record' => 'Criminal record check',
+            'work_permit' => 'Work permit',
+            'certificate' => 'Certificate',
+            'other' => 'Other',
+        ];
+
+        $types = collect(self::FIXED_DOCUMENT_TYPES)
+            ->when($request->filled('category'), fn ($c) => $c->filter(fn ($cat) => $cat === $request->string('category')))
+            ->map(fn ($category, $key) => ['key' => $key, 'label' => $labels[$key], 'category' => $category])
+            ->values();
+
+        return $this->success($types);
+    }
 
     /**
      * A worker's own documents. No special permission — a worker can
@@ -35,7 +113,7 @@ class WorkerDocumentController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'document_type' => ['required', 'in:identity_document,residence_permit,work_permit,social_security_card,driving_license,criminal_record,certificate,other'],
+            'document_type' => ['required', Rule::in($this->allowedDocumentTypes())],
             'file' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png'],
             'document_number' => ['nullable', 'string', 'max:255'],
             'issued_at' => ['nullable', 'date'],

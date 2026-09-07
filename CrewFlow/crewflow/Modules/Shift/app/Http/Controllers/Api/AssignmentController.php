@@ -5,8 +5,11 @@ namespace Modules\Shift\Http\Controllers\Api;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Core\Traits\ApiResponse;
+use Modules\Employee\Models\CompanyWorker;
+use Modules\Employee\Models\Worker as EmployeeWorker;
 use Modules\Shift\Http\Resources\AssignmentResource;
 use Modules\Shift\Models\Assignment;
+use Modules\Shift\Models\Event;
 use Modules\Shift\Models\Shift;
 use Modules\Shift\Models\ShiftInterest;
 use Modules\Shift\Models\ShiftPosition;
@@ -94,7 +97,39 @@ class AssignmentController extends Controller
             $shift->update(['status' => 'partially_filled']);
         }
 
+        if ($shift->event_id && $shift->event?->requires_contract) {
+            $this->ensureAssignmentNotice($shift->event, $data['worker_id']);
+        }
+
         return $this->success(new AssignmentResource($assignment->load('position.role')), 'Worker assigned', 201);
+    }
+
+    /**
+     * The Employee module's per-placement Überlassungsmitteilung — auto-
+     * created (once per worker per event, never duplicated) whenever a
+     * worker is assigned to a Shift under an Event with
+     * requires_contract=true. This does NOT gate the assignment itself
+     * (WorkerEligibility, checked above, already required an active
+     * *general* contract before we even got here) — it's an additional
+     * per-event document the worker signs separately. Starts with no
+     * file attached; an admin/dispatcher should attach the actual
+     * notification document shortly after, before expecting a signature.
+     * See the Employee module's README for the full rationale.
+     */
+    private function ensureAssignmentNotice(Event $event, int $workerId): void
+    {
+        $worker = EmployeeWorker::firstOrCreate(['user_id' => $workerId]);
+        $companyWorker = CompanyWorker::firstOrCreate(['worker_id' => $worker->id]);
+
+        $companyWorker->contracts()->firstOrCreate(
+            ['event_id' => $event->id, 'contract_type' => 'assignment_notice'],
+            [
+                'work_time_model' => 'casual',
+                'start_date' => $event->starts_at->toDateString(),
+                'end_date' => $event->ends_at->toDateString(),
+                'status' => 'pending_signature',
+            ]
+        );
     }
 
     /**

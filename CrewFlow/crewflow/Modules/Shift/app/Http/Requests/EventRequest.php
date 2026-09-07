@@ -25,6 +25,7 @@ class EventRequest extends FormRequest
             'location_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'starts_at' => [$isCreating ? 'required' : 'sometimes', 'date'],
             'ends_at' => [$isCreating ? 'required' : 'sometimes', 'date', 'after:starts_at'],
+            'requires_contract' => ['sometimes', 'boolean'],
         ];
     }
 }

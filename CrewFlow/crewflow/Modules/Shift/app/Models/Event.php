@@ -13,6 +13,11 @@ use Modules\Organization\Models\Branch;
  * (e.g. a wedding needing separate Shifts for drivers and guards, each
  * with their own precise time window). Optional — a Shift doesn't need
  * an Event to exist.
+ *
+ * `requires_contract`: when true, assigning a worker to any Shift under
+ * this Event automatically creates an Employee-module `EmploymentContract`
+ * (contract_type: assignment_notice — Überlassungsmitteilung) for them,
+ * pending their signature. See AssignmentController::store().
  */
 class Event extends Model
 {
@@ -28,6 +33,7 @@ class Event extends Model
         'location_lng',
         'starts_at',
         'ends_at',
+        'requires_contract',
         'created_by',
     ];
 
@@ -38,6 +44,7 @@ class Event extends Model
             'ends_at' => 'datetime',
             'location_lat' => 'decimal:7',
             'location_lng' => 'decimal:7',
+            'requires_contract' => 'boolean',
         ];
     }
 

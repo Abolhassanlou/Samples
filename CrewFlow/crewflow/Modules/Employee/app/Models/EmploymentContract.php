@@ -11,6 +11,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * later). This history is the whole point of splitting Worker from
  * CompanyWorker from EmploymentContract: identity/documents don't get
  * rewritten every time a new contract starts.
+ *
+ * `event_id` (nullable): some companies need a fresh contract per
+ * event/project (typically `work_contract`); others sign one ongoing
+ * contract that covers everything (e.g. an ongoing role like teaching —
+ * typically `employment_contract`). This one column supports both,
+ * rather than building two separate contract systems. Deliberately NOT
+ * a belongsTo relationship to Shift's Event model here — Shift already
+ * depends on Employee, so an Eloquent relationship the other way would
+ * be circular; the frontend fetches event details separately by this id.
  */
 class EmploymentContract extends Model
 {
@@ -18,6 +27,7 @@ class EmploymentContract extends Model
 
     protected $fillable = [
         'company_worker_id',
+        'event_id',
         'contract_number',
         'contract_type',
         'work_time_model',
@@ -26,6 +36,8 @@ class EmploymentContract extends Model
         'start_date',
         'end_date',
         'status',
+        'file_path',
+        'signed_at',
         'termination_date',
         'termination_reason',
         'notes',
@@ -38,6 +50,7 @@ class EmploymentContract extends Model
             'weekly_hours' => 'decimal:2',
             'start_date' => 'date',
             'end_date' => 'date',
+            'signed_at' => 'datetime',
             'termination_date' => 'date',
         ];
     }
@@ -55,6 +68,16 @@ class EmploymentContract extends Model
     public function isPermanent(): bool
     {
         return $this->end_date === null;
+    }
+
+    public function isSigned(): bool
+    {
+        return $this->signed_at !== null;
+    }
+
+    public function hasFile(): bool
+    {
+        return $this->file_path !== null;
     }
 
     /**

@@ -17,7 +17,8 @@ class EmploymentContractRequest extends FormRequest
 
         return [
             'contract_number' => ['nullable', 'string', 'max:255'],
-            'contract_type' => [$isCreating ? 'required' : 'sometimes', 'in:employment_contract,free_service_contract,work_contract'],
+            'event_id' => ['nullable', 'integer', 'exists:events,id'],
+            'contract_type' => [$isCreating ? 'required' : 'sometimes', 'in:employment_contract,free_service_contract,work_contract,assignment_notice'],
             'work_time_model' => [$isCreating ? 'required' : 'sometimes', 'in:full_time,part_time,casual'],
             'is_marginal' => ['sometimes', 'boolean'],
             'weekly_hours' => ['nullable', 'numeric', 'min:0'],
@@ -27,6 +28,10 @@ class EmploymentContractRequest extends FormRequest
             'termination_date' => ['nullable', 'date'],
             'termination_reason' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string'],
+            // The actual contract document — optional (a draft might not
+            // have one attached yet), uploaded as multipart alongside the
+            // other fields, not as a separate request.
+            'file' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png'],
         ];
     }
 }

@@ -6,7 +6,18 @@ The worker-facing app — where the invite link from the Employee module's invit
 
 - **Accept invite** (`/accept-invite?token=...&company=...`) — reads both query params (see "why both params" below), shows "You've been invited to join {company}", and lets the worker set their real name/phone/password. Calls `GET /api/invitations/{token}` then `POST /api/invitations/{token}/accept`, both on the Employee module — both public, no login needed yet.
 - **Login** (`/login`) — for a worker who already has an account and is returning. Same company-code + email + password pattern as the admin panel (same backend, same auth mechanism).
-- **Dashboard** (`/`) — placeholder post-login/accept screen. Shift browsing, assignments, and document upload are built next.
+- **Main app shell** (`AppShell.vue`) — a bottom tab bar (Home / Jobs / Calendar / Chat / Profile), matching a native-app feel since a worker is far more likely to open this on a phone than a desktop.
+  - **Home** (`/`) — placeholder; today's shifts, upcoming assignments, and quick actions come next.
+  - **Jobs** (`/jobs`) — placeholder; browsing/expressing interest in available shifts comes next.
+  - **Calendar** (`/calendar`) — placeholder; a calendar view of assignments comes next.
+  - **Chat** (`/chat`) — placeholder; wires into the existing Chat module (direct/group/broadcast, and the automatic per-Event team chat) once built.
+  - **Profile** (`/profile`) — an ID card (name + company) and an accordion of sections (tap the `+` to expand in place, no navigating away): My info (Personal details/Skills/Bank, each its own nested accordion), Accounting, Payroll, Documents (Work contracts / My uploads — the latter is fully wired to the existing `GET/POST /api/documents` endpoints, upload included), Share app, Settings (Language/Company/Sign out/Delete account, also nested).
+
+## Building Profile's sections — one at a time, and the one open design question
+
+Per the plan: My info (personal details, address, skills, bank details), Accounting (hours worked per shift/event this month), Payroll (pay calculated from those hours), Documents (contract documents vs. the worker's own uploads), Share app (referral code), Settings (language, company switch, sign out, delete account).
+
+**The one real architectural decision still open**: several of these (skill questions, personal-info fields, document types) need to be *configurable per company* — one company might ask about a driving license (manual vs. automatic), another might not need that at all but wants a different custom question instead. This needs a proper dynamic-fields system on the backend (company-defined field definitions + worker-submitted answers), not hardcoded columns — to be designed before any of these sections gets built for real.
 
 ## Why the invite link carries both `token` and `company`
 
@@ -44,14 +55,21 @@ Every API call here needs to know which tenant's subdomain to hit (`{company-cod
 src/
   api/client.js         axios instance; base URL set per-request from the auth store's companyCode (used once logged in)
   api/invitations.js     fetchInvitation()/acceptInvitation() — built on a raw axios call, not client.js, since there's no session yet (see above)
+  api/documents.js        fetchMyDocuments()/uploadDocument() — wraps the Employee module's existing document endpoints
   stores/auth.js          Pinia store: companyCode, token, user, login()/logout()/setSession(), persisted to localStorage
   router/index.js         route guard: redirects to /login when unauthenticated (accept-invite and login are public)
+  components/layout/AppShell.vue  bottom tab bar wrapping every authenticated page
+  components/AccordionItem.vue    reusable expand/collapse item — Profile's sections and their nested sub-sections are all built from this
   views/AcceptInviteView.vue   the invite-completion screen
   views/LoginView.vue          returning-worker sign in
-  views/DashboardView.vue      placeholder post-login screen
-  assets/main.css              design tokens — same palette/type as admin-panel, for brand consistency
+  views/HomeView.vue           the Home tab
+  views/JobsView.vue           the Jobs tab
+  views/CalendarView.vue       the Calendar tab
+  views/ChatView.vue           the Chat tab
+  views/ProfileView.vue        the Profile tab — ID card + menu of sub-sections (still placeholders)
+  assets/main.css               design tokens — same palette/type as admin-panel, for brand consistency
 ```
 
 ## Design note
 
-Single-column, centered-card layouts throughout (not the admin panel's split-screen login) — a worker is far more likely to open this on a phone than a desktop.
+Single-column, centered-card layouts for auth screens (not the admin panel's split-screen login), and a bottom tab bar rather than a sidebar once logged in — a worker is far more likely to open this on a phone than a desktop.

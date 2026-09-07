@@ -26,6 +26,7 @@ class EventController extends Controller
     {
         $event = Event::create([
             ...$request->validated(),
+            'requires_contract' => $request->validated('requires_contract', false),
             'created_by' => $request->user()->id,
         ]);
 
