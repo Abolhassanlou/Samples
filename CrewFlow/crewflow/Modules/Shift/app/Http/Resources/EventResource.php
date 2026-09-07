@@ -20,6 +20,7 @@ class EventResource extends JsonResource
             'location_lng' => $this->location_lng,
             'starts_at' => $this->starts_at,
             'ends_at' => $this->ends_at,
+            'requires_contract' => $this->requires_contract,
             'shifts_count' => $this->whenCounted('shifts'),
             'created_at' => $this->created_at,
         ];

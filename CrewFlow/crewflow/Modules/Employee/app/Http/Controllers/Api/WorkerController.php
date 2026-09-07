@@ -2,6 +2,7 @@
 
 namespace Modules\Employee\Http\Controllers\Api;
 
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Authentication\Models\User;
 use Modules\Core\Traits\ApiResponse;
@@ -19,17 +20,33 @@ class WorkerController extends Controller
 {
     use ApiResponse;
 
-    public function show(User $user)
+    public function show(Request $request, User $user)
     {
+        abort_unless($request->user()->id === $user->id || $request->user()->can('users.manage'), 403);
+
         $worker = Worker::firstOrCreate(['user_id' => $user->id]);
 
         return $this->success(new WorkerResource($worker));
     }
 
+    /**
+     * A worker editing their own record can only touch personal facts —
+     * status and work-authorization fields are deliberately stripped
+     * out unless the requester has users.manage, so a worker can never
+     * self-approve their own work authorization or activate themselves.
+     */
     public function update(WorkerRequest $request, User $user)
     {
+        $isSelf = $request->user()->id === $user->id;
+        abort_unless($isSelf || $request->user()->can('users.manage'), 403);
+
+        $data = $request->validated();
+        if ($isSelf && ! $request->user()->can('users.manage')) {
+            unset($data['status'], $data['work_authorization_status'], $data['work_authorization_type'], $data['work_authorization_expiry_date']);
+        }
+
         $worker = Worker::firstOrCreate(['user_id' => $user->id]);
-        $worker->update($request->validated());
+        $worker->update($data);
 
         return $this->success(new WorkerResource($worker), 'Worker updated');
     }

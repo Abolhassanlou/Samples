@@ -37,13 +37,16 @@ We didn't try to build one configurable-format auto-numbering algorithm to satis
 
 `contract_number` (nullable, manual), `contract_type`, `work_time_model`, `is_marginal`, `weekly_hours`, `start_date`, `end_date`, `status`, `termination_date`, `termination_reason`, `notes`.
 
-**`contract_type`** — three values for now (not five; `Lehrvertrag`/`Praktikum` deliberately excluded, add later if actually needed):
+**`contract_type`** — four values (not five/six; `Lehrvertrag`/`Praktikum` deliberately excluded, add later if actually needed):
 
 | Value | German |
 |---|---|
 | `employment_contract` | Echter Dienstvertrag |
 | `free_service_contract` | Freier Dienstvertrag |
 | `work_contract` | Werkvertrag |
+| `assignment_notice` | Überlassungsmitteilung |
+
+`assignment_notice` is different in kind from the other three, not just another option in the same list: the other three are the actual employment relationship (signed once, `event_id` typically null, and what `WorkerEligibility` checks for). `assignment_notice` is a lighter, per-placement notification — Austrian staff-leasing law's Überlassungsmitteilung — auto-created (with `event_id` set) whenever a worker is assigned to a shift under an Event with `requires_contract = true` (see Shift's `AssignmentController`). It does **not** replace or bypass the general contract requirement; a worker already needs an active general contract to be assignable at all (unchanged `WorkerEligibility` rule) — this is an *additional* per-event document layered on top. `event_id` doubles as a convenient way to look up/sort every worker who worked a given event, regardless of which contract_type their rows are.
 
 **`work_time_model`**:
 
@@ -60,6 +63,24 @@ We didn't try to build one configurable-format auto-numbering algorithm to satis
 **No stored `duration_type`.** Whether a contract is `Unbefristet` (permanent) or `Befristet` (fixed-term) is derived from whether `end_date` is null — see `EmploymentContract::isPermanent()`. Storing it as a separate field would risk it disagreeing with the actual dates.
 
 **`status`**: `draft` → `pending_signature` → `active` → (`expired` / `terminated` / `cancelled`). `expired` is meant to be system-determined from `end_date`, not something an admin sets by hand (not yet automated — a manual status change for now).
+
+## Per-event vs. ongoing contracts, and the worker's own online signature
+
+`EmploymentContract.event_id` (nullable) supports two different needs with one column instead of building separate systems for each: some companies need a fresh `work_contract` per event/project (`event_id` set); others sign one ongoing contract that covers everything (e.g. an ongoing role like teaching — typically `employment_contract`, `event_id` left null). Deliberately **not** a `belongsTo` Eloquent relationship to Shift's `Event` model — Shift already depends on Employee, so a relationship the other way would be circular; it's a plain FK column, and the frontend fetches event details separately by id when needed.
+
+**Auto-created `assignment_notice` contracts**: when a Shift belongs to an Event with `requires_contract = true`, assigning a worker to it (see Shift's `AssignmentController::store()`) automatically creates (find-or-create, one per worker per event) an `EmploymentContract` with `contract_type: assignment_notice`, `event_id` set, and `status: pending_signature` — the worker then sees it on their profile and signs it separately from their general contract. This does **not** bypass or interact with `WorkerEligibility` — a worker still needs an already-active *general* contract (`employment_contract`/`free_service_contract`/`work_contract` with no `event_id`, or one whose own `event_id` doesn't matter to the eligibility check) before they can be assigned to anything at all. The `assignment_notice` is purely an additional per-placement document layered on top, generated *after* assignment, never a precondition for it.
+
+**Signing**: `POST /api/users/{user}/contracts/{contract}/sign` — self-ONLY (never admin, checked inline, not by route permission), only valid when `status = pending_signature`. Sets `status: active` and stamps `signed_at`. For a general contract, this is what makes it start counting toward `WorkerEligibility` (which just looks at `status = active`, unaware of *how* it got there — signing is one path, an admin directly setting `active` is another). For an `assignment_notice`, signing simply records the worker's confirmation for that specific placement — `WorkerEligibility` never looks at these rows at all.
+
+**The actual document**: signing means nothing if there's nothing to read first. `EmploymentContract.file_path` (nullable) holds the real contract document — an admin attaches it via `POST`/`PUT .../contracts` as `multipart/form-data` with a `file` field (same pattern as `WorkerDocumentController::store()`), alongside the other fields. `GET .../contracts/{contract}/download` (self or `users.manage`) retrieves it — a worker needs to actually read the document before they sign, not just click a button with nothing behind it. Not every contract strictly needs a file (a rough `draft`, or a very informal `casual` arrangement, might never get one) — nothing at the database level forces it, but a `pending_signature` contract with no file attached should be treated as a UI mistake, not a valid state to leave a worker in. Auto-created `assignment_notice` rows in particular start with no file at all — an admin/dispatcher should attach the actual notification document shortly after Shift auto-creates the row, before the worker is expected to sign it. Since `PUT` doesn't natively support `multipart/form-data` in most HTTP clients/browsers, updating a contract's file uses Laravel's standard method-spoofing (`POST` with `_method=PUT` in the form data).
+
+## Self-access corrections worth knowing about
+
+Two real gaps existed before this pass and are now fixed:
+
+- `WorkerController::show()` had **no permission check at all** despite its own docblock claiming self-or-`users.manage` — any authenticated user could view any other worker's personal record. Now enforced inline.
+- `WorkerController::update()` now allows a worker to edit their own personal facts (name, DOB, address, etc. — matching the worker portal's "My info → Personal details" section, meant to be self-filled) — but `status` and all `work_authorization_*` fields are stripped out unless the requester has `users.manage`, so a worker can never self-approve their own work authorization or activate their own account.
+- `EmploymentContractController::index()` moved out of the `users.manage`-only route group — a worker needs to see their own contract history (to know what to sign), checked self-or-admin inline instead.
 
 ## Shift assignment eligibility (see the Shift module)
 
@@ -78,6 +99,23 @@ An admin/dispatcher only ever types an **email address** (`POST /api/workers/inv
 **Why the link includes `company=` alongside `token=`**: every API call in this project needs to know which tenant's subdomain to hit (`{company-code}.crewflow.localhost/api/...` — see `Modules/Tenancy/README.md` and the admin panel's `buildBaseUrl()`). A bare token alone wouldn't tell a future worker-portal frontend which company's API to call before it's even authenticated — so the company code rides along in the same link, and is also returned from `GET /api/invitations/{token}` as a cross-check.
 
 The older "admin types everything by hand" flow (the frontend's `CreateWorkerView`, hitting `POST /api/auth/register` directly) still works — useful for e.g. importing existing employee data — but is no longer the primary path a new worker is expected to go through.
+
+## Custom fields — why companies need configurable questions, not hardcoded columns
+
+Different companies need different questions on a worker's profile — one asks about a manual-vs-automatic driving license, another doesn't care but wants a different question instead. Hardcoding columns for every possible question doesn't scale and would need a migration every time a company wants something new. Three tables handle this instead, deliberately kept separate because they answer different needs:
+
+- **`CustomFieldDefinition`** — a company-defined question: `category` (`personal_info` or `skill` — which Profile accordion it appears under), `key` (a stable slug, e.g. `"shoe_size"` — renaming the `label` later never orphans existing answers), `label`, `field_type` (`text`/`number`/`boolean`/`select`/`date` — tells the frontend which input widget to render), `options` (JSON array, only used when `field_type = select`), `is_required`, `sort_order`, `is_active` (soft-disable, not delete — keeps existing answers intact if a company stops asking something).
+- **`CustomFieldAnswer`** — one worker's answer to one definition. Everything stored as `text` regardless of `field_type` (a boolean becomes `"true"`/`"false"`, a number its string form) — simpler than a differently-typed column per `field_type`, and the frontend already knows how to parse/render each type from the definition it's answering.
+- **`CustomDocumentType`** — deliberately **not** part of the same system. A document "answer" is a file, not a piece of text, so it doesn't fit the definition/answer pattern above — this is just a company-added `{category, key, label}` triple that extends (never replaces) the fixed baseline list already in `WorkerDocumentController`. `WorkerDocumentController::store()`'s validation now accepts either list.
+
+## Two kinds of documents — `personal` vs `work`, and neither one is the contract
+
+Every document type (fixed or custom) has a `category`:
+
+- **`personal`** — general identity documents (photo, passport, ID card, bank card, resume, driving license, proof of address, etc.) — not tied to any specific job. Shown under the worker portal's **My info** accordion.
+- **`work`** — job/event-related uploads (e.g. a timesheet, an event-specific certificate) — tied to actual work performed. Shown under the top-level **Documents** section, alongside (but distinct from) employment contracts.
+
+**Employment contracts are a separate concept from either of these** — `EmploymentContract` (see above) isn't a `WorkerDocument` at all; it's its own table with its own lifecycle. A contract that requires the worker's own online signature/confirmation before a shift can be assigned to them is a planned capability, not yet built — see the Shift module's `WorkerEligibility` for the current (admin-set-status-only) eligibility rule this will eventually extend.
 
 ## Install
 
@@ -101,14 +139,16 @@ A `WorkerQualification` is only ever created two ways: (1) an admin grants it di
 
 ```
 GET    /api/users/{user}/worker                                                              (self or users.manage)
-PUT    /api/users/{user}/worker            { first_name?, last_name?, date_of_birth?, address?, postal_code?, city?, country?, status?, work_authorization_status?, work_authorization_type?, work_authorization_expiry_date? }   [users.manage]
+PUT    /api/users/{user}/worker            { first_name?, last_name?, date_of_birth?, address?, postal_code?, city?, country?, status?, work_authorization_status?, work_authorization_type?, work_authorization_expiry_date? }   (self — status/work_authorization_* fields silently ignored unless users.manage)
 
 GET    /api/users/{user}/employment                                                           [users.manage]
 PUT    /api/users/{user}/employment        { employee_number?, home_branch_id?, works_night_shifts?, status?, joined_at?, left_at? }   [users.manage]
 
-GET    /api/users/{user}/contracts                                                             [users.manage]
-POST   /api/users/{user}/contracts         { contract_type, work_time_model, is_marginal?, weekly_hours?, start_date, end_date?, contract_number?, notes? }   [users.manage]
-PUT    /api/users/{user}/contracts/{contract}                                                  [users.manage]
+GET    /api/users/{user}/contracts                                                             (self or users.manage)
+POST   /api/users/{user}/contracts         multipart: { contract_type, work_time_model, is_marginal?, weekly_hours?, event_id?, start_date, end_date?, contract_number?, notes?, file? }   [users.manage]
+PUT    /api/users/{user}/contracts/{contract}   multipart (use _method=PUT), same fields          [users.manage]
+GET    /api/users/{user}/contracts/{contract}/download                                         (self or users.manage)
+POST   /api/users/{user}/contracts/{contract}/sign                                             (self ONLY — never admin; only valid while status=pending_signature)
 
 GET    /api/users/{user}/qualifications
 POST   /api/users/{user}/qualifications         { qualification_id }                        [qualifications.manage]
@@ -118,11 +158,23 @@ GET    /api/users/{user}/availability
 POST   /api/users/{user}/availability           { slots: [{ day_of_week, start_time, end_time }, ...] }  (full replace; self or users.manage)
 
 GET    /api/documents                           a worker's own upload history
-POST   /api/documents                           multipart: { document_type: identity_document|residence_permit|work_permit|social_security_card|driving_license|criminal_record|certificate|other, file, document_number?, issued_at?, visa_type?, expires_at? }
+GET    /api/documents/types                     ?category=personal|work   the fixed baseline document types, each with its category (merge with custom-document-types below for the full list)
+POST   /api/documents                           multipart: { document_type: see GET /api/documents/types + /api/custom-document-types for the full current list, file, document_number?, issued_at?, visa_type?, expires_at? }
 GET    /api/documents/{document}/download       (owner or documents.review)
 
 GET    /api/documents/pending                                                                [documents.review]
 POST   /api/documents/{document}/review         { decision: approved|rejected, rejection_reason?, qualification_id? }   [documents.review]
+
+GET    /api/custom-fields                       ?category=personal_info|skill   (active only unless users.manage)
+POST   /api/custom-fields                       { category, key, label, field_type, options?, is_required?, sort_order? }   [users.manage]
+PUT    /api/custom-fields/{customField}                                                       [users.manage]
+
+GET    /api/custom-document-types                ?category=personal|work   (active only unless users.manage)
+POST   /api/custom-document-types               { category, key, label, sort_order? }        [users.manage]
+PUT    /api/custom-document-types/{documentType}                                               [users.manage]
+
+GET    /api/users/{user}/custom-field-answers                                                  (self or users.manage)
+POST   /api/users/{user}/custom-field-answers   { answers: [{ custom_field_definition_id, value }, ...] }   (full replace; self or users.manage)
 
 GET    /api/workers                             ?search=&qualification_id=&branch_id=&contract_type=&work_time_model=&night_shift=1&eligible=1&day_of_week=&time=   [shifts.dispatch]
 

@@ -39,6 +39,14 @@ The actual work a company posts, workers express interest in, and a dispatcher a
 
 A worker missing any of these gets a clear 422, not a silent failure. This is a hard gate at assignment time — separate from `ShiftVisibility` (which only controls whether a worker *sees* a shift at all).
 
+## `Event.requires_contract` — auto-creating a per-placement Überlassungsmitteilung
+
+When an Event has `requires_contract: true`, successfully assigning a worker to any Shift under it automatically creates (find-or-create — never duplicated per worker per event) an Employee-module `EmploymentContract` with `contract_type: assignment_notice` (Überlassungsmitteilung — Austrian staff-leasing notification law), `event_id` set, and `status: pending_signature`. See `AssignmentController::ensureAssignmentNotice()`.
+
+**This is layered on top of `WorkerEligibility`, not a replacement for it.** The eligibility check above (which requires an already-*active general* contract) still runs first and can still reject the assignment — a worker with zero contracts at all can't get assigned to a `requires_contract` Event any more than any other Shift. Once assigned, the *additional* `assignment_notice` row is what the worker signs to confirm that specific placement — a second, lighter document layered on top of their already-active general contract, not a way around it.
+
+The auto-created row starts with no document file attached (`EmploymentContract.file_path` is null) — an admin/dispatcher should attach the actual notification document (`PUT /api/users/{worker}/contracts/{contract}`, multipart) shortly after, before the worker is expected to read and sign it.
+
 ## Permissions used (already seeded by Authorization)
 
 - `shifts.create` — create/edit shifts, events, shift roles, and positions

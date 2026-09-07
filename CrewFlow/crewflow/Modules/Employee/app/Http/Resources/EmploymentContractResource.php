@@ -12,6 +12,7 @@ class EmploymentContractResource extends JsonResource
         return [
             'id' => $this->id,
             'company_worker_id' => $this->company_worker_id,
+            'event_id' => $this->event_id,
             'contract_number' => $this->contract_number,
             'contract_type' => $this->contract_type,
             'work_time_model' => $this->work_time_model,
@@ -22,6 +23,9 @@ class EmploymentContractResource extends JsonResource
             // Derived, not stored — see EmploymentContract::isPermanent().
             'is_permanent' => $this->isPermanent(),
             'status' => $this->status,
+            'has_file' => $this->hasFile(),
+            'signed_at' => $this->signed_at,
+            'is_signed' => $this->isSigned(),
             'termination_date' => $this->termination_date,
             'termination_reason' => $this->termination_reason,
             'notes' => $this->notes,
