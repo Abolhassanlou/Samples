@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * A company-added document type, e.g. "Vaccination card" — shown
- * alongside the fixed baseline list (identity_document, work_permit,
+ * alongside the fixed baseline list (identity_document, work_permit_front,
  * etc. — see WorkerDocumentController) in the upload dropdown. Never
  * replaces the baseline, only extends it. `category` slots it into
  * either the "My info" personal-documents list or the top-level

@@ -34,6 +34,12 @@ class WorkerController extends Controller
      * status and work-authorization fields are deliberately stripped
      * out unless the requester has users.manage, so a worker can never
      * self-approve their own work authorization or activate themselves.
+     *
+     * `bank_account_holder_name` should match the worker's own name in
+     * practice, but that's deliberately just a note shown on the
+     * frontend, not a hard backend check — real legal names have enough
+     * variation (diacritics, middle names, order, joint accounts) that
+     * an automated match kept producing false rejections.
      */
     public function update(WorkerRequest $request, User $user)
     {

@@ -14,12 +14,14 @@ use Modules\Organization\Models\Branch;
  * — both fully optional, so every Shift created before these existed
  * keeps working exactly as before (plain quantity_needed, no roles).
  *
- * `qualification_override`: an escape hatch for staffing shortages — e.g.
- * an unpopular night shift nobody with the right qualification wants.
- * When true, ShiftVisibility skips the qualification check entirely for
- * this Shift (branch/event access is still required); everyone who can
- * already see the shift for access reasons sees it regardless of whether
- * they hold the qualifications it lists.
+ * `qualification_policy`: three states, not a single override flag —
+ * `strict` (default, the normal ShiftVisibility hide-rule), `override`
+ * (a deliberate staffing-shortage escape hatch — bypasses the
+ * qualification check entirely, no warning, everyone sees it), or
+ * `warn` (also visible to everyone regardless of qualification, and
+ * they can act — but a dispatcher reviewing that worker's interest/
+ * assignment sees a flag that this specific one doesn't actually meet
+ * the requirement — see `ShiftVisibility::workerQualifies()`).
  */
 class Shift extends Model
 {
@@ -47,7 +49,7 @@ class Shift extends Model
         'starts_at',
         'ends_at',
         'status',
-        'qualification_override',
+        'qualification_policy',
         'created_by',
     ];
 
@@ -61,7 +63,6 @@ class Shift extends Model
             'client_billing_rate' => 'decimal:2',
             'location_lat' => 'decimal:7',
             'location_lng' => 'decimal:7',
-            'qualification_override' => 'boolean',
         ];
     }
 
@@ -98,6 +99,16 @@ class Shift extends Model
     public function requiredQualifications(): HasMany
     {
         return $this->hasMany(ShiftQualification::class);
+    }
+
+    /**
+     * Only the shift-wide requirements (shift_position_id IS NULL) — the
+     * only kind that applies to a Shift with no positions at all. See
+     * ShiftPosition::requiredQualifications() for the per-role kind.
+     */
+    public function shiftLevelQualifications(): HasMany
+    {
+        return $this->requiredQualifications()->whereNull('shift_position_id');
     }
 
     public function hasPositions(): bool

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Modules\Authentication\Models\User;
 use Modules\Core\Traits\ApiResponse;
 use Modules\Employee\Http\Resources\WorkerDocumentResource;
 use Modules\Employee\Models\CustomDocumentType;
@@ -33,16 +34,18 @@ class WorkerDocumentController extends Controller
     private const FIXED_DOCUMENT_TYPES = [
         'photo' => 'personal',
         'passport' => 'personal',
-        'identity_document' => 'personal',
+        'identity_document' => 'personal', // ID card — an alternative to passport, not both required
+        'insurance_card_front' => 'personal',
+        'insurance_card_back' => 'personal',
         'bank_card' => 'personal',
         'resume' => 'personal',
-        'driving_license' => 'personal',
-        'address_proof' => 'personal',
+        'work_permit_front' => 'personal',
+        'work_permit_back' => 'personal',
+        'driving_license' => 'personal', // optional — only if the worker actually has one
+        'meldezettel' => 'personal', // Austrian residence registration certificate
         'residence_permit' => 'personal',
-        'social_security_card' => 'personal',
         'criminal_record' => 'personal',
 
-        'work_permit' => 'work',
         'certificate' => 'work',
         'other' => 'work',
     ];
@@ -72,20 +75,28 @@ class WorkerDocumentController extends Controller
             'photo' => 'Photo',
             'passport' => 'Passport',
             'identity_document' => 'ID card',
+            'insurance_card_front' => 'Insurance card (front)',
+            'insurance_card_back' => 'Insurance card (back)',
             'bank_card' => 'Bank card',
             'resume' => 'Resume',
+            'work_permit_front' => 'Work permit (front)',
+            'work_permit_back' => 'Work permit (back)',
             'driving_license' => 'Driving license',
-            'address_proof' => 'Proof of address',
+            'meldezettel' => 'Meldezettel (residence registration)',
             'residence_permit' => 'Residence permit',
-            'social_security_card' => 'Social security card',
             'criminal_record' => 'Criminal record check',
-            'work_permit' => 'Work permit',
             'certificate' => 'Certificate',
             'other' => 'Other',
         ];
 
         $types = collect(self::FIXED_DOCUMENT_TYPES)
-            ->when($request->filled('category'), fn ($c) => $c->filter(fn ($cat) => $cat === $request->string('category')))
+            // NOTE: $request->string() returns a Stringable OBJECT, not
+            // a plain string — comparing it with === against a plain
+            // string is ALWAYS false regardless of content (strict
+            // comparison never coerces types), which silently filtered
+            // this list down to nothing whenever ?category= was passed.
+            // $request->query() returns the raw string value instead.
+            ->when($request->filled('category'), fn ($c) => $c->filter(fn ($cat) => $cat === $request->query('category')))
             ->map(fn ($category, $key) => ['key' => $key, 'label' => $labels[$key], 'category' => $category])
             ->values();
 
@@ -99,6 +110,22 @@ class WorkerDocumentController extends Controller
     public function index(Request $request)
     {
         $documents = WorkerDocument::where('worker_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return $this->success(WorkerDocumentResource::collection($documents));
+    }
+
+    /**
+     * The same thing as index(), but for a SPECIFIC other worker — what
+     * an admin uses on that worker's detail page to see everything
+     * they've uploaded (not just the pending ones — see pending()
+     * below for the review queue). Gated by documents.review, the same
+     * permission reviewing a document itself requires.
+     */
+    public function forWorker(User $user)
+    {
+        $documents = WorkerDocument::where('worker_id', $user->id)
             ->orderByDesc('created_at')
             ->get();
 

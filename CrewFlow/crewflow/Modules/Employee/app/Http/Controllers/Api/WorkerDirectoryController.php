@@ -38,14 +38,19 @@ class WorkerDirectoryController extends Controller
             });
         }
 
+        // NOTE: $request->string() returns a Stringable OBJECT, not a
+        // plain string — using it as an Eloquent where() value can fail
+        // to bind/match correctly. $request->query() returns the raw
+        // string instead (same fix as WorkerDocumentController::types(),
+        // CustomFieldDefinitionController, and CustomDocumentTypeController).
         if ($request->filled('contract_type') || $request->filled('work_time_model')) {
             $query->whereHas('companyWorker.contracts', function ($q) use ($request) {
                 $q->where('status', 'active');
                 if ($request->filled('contract_type')) {
-                    $q->where('contract_type', $request->string('contract_type'));
+                    $q->where('contract_type', $request->query('contract_type'));
                 }
                 if ($request->filled('work_time_model')) {
-                    $q->where('work_time_model', $request->string('work_time_model'));
+                    $q->where('work_time_model', $request->query('work_time_model'));
                 }
             });
         }
@@ -80,12 +85,16 @@ class WorkerDirectoryController extends Controller
         if ($request->filled('day_of_week') && $request->filled('time')) {
             $query->whereHas('availability', function ($q) use ($request) {
                 $q->where('day_of_week', $request->integer('day_of_week'))
-                    ->where('start_time', '<=', $request->string('time'))
-                    ->where('end_time', '>=', $request->string('time'));
+                    ->where('start_time', '<=', $request->query('time'))
+                    ->where('end_time', '>=', $request->query('time'));
             });
         }
 
         if ($request->filled('search')) {
+            // Safe as-is, unlike the where() calls above — string
+            // interpolation ("%{$search}%") calls Stringable's own
+            // __toString() automatically, so this never hits the same
+            // binding issue.
             $search = $request->string('search');
             $query->whereHas('user', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")

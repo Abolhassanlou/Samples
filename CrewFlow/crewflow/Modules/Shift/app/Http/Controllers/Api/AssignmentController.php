@@ -22,6 +22,7 @@ class AssignmentController extends Controller
     public function index(Shift $shift)
     {
         $assignments = $shift->assignments()->with(['worker', 'position.role'])->get();
+        $assignments->each(fn ($a) => $a->setRelation('shift', $shift));
 
         return $this->success(AssignmentResource::collection($assignments));
     }

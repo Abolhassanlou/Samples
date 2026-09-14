@@ -27,6 +27,8 @@ class ShiftInterestController extends Controller
             ->whereIn('status', ['pending', 'waitlisted'])
             ->get();
 
+        $interests->each(fn ($i) => $i->setRelation('shift', $shift));
+
         return $this->success(ShiftInterestResource::collection($interests));
     }
 

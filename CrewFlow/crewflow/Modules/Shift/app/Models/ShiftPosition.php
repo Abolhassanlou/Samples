@@ -45,6 +45,11 @@ class ShiftPosition extends Model
         return $this->hasMany(Assignment::class);
     }
 
+    public function requiredQualifications(): HasMany
+    {
+        return $this->hasMany(ShiftQualification::class);
+    }
+
     public function confirmedAssignmentsCount(): int
     {
         return $this->assignments()->where('status', 'confirmed')->count();

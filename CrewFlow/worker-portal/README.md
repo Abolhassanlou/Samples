@@ -11,13 +11,19 @@ The worker-facing app — where the invite link from the Employee module's invit
   - **Jobs** (`/jobs`) — placeholder; browsing/expressing interest in available shifts comes next.
   - **Calendar** (`/calendar`) — placeholder; a calendar view of assignments comes next.
   - **Chat** (`/chat`) — placeholder; wires into the existing Chat module (direct/group/broadcast, and the automatic per-Event team chat) once built.
-  - **Profile** (`/profile`) — an ID card (name + company) and an accordion of sections (tap the `+` to expand in place, no navigating away): My info (Personal details/Skills/Bank, each its own nested accordion), Accounting, Payroll, Documents (Work contracts / My uploads — the latter is fully wired to the existing `GET/POST /api/documents` endpoints, upload included), Share app, Settings (Language/Company/Sign out/Delete account, also nested).
+  - **Profile** (`/profile`) — an ID card (name + company) and an accordion of sections (tap the `+` to expand in place, no navigating away):
+    - **My info**: *Personal details* (fixed baseline fields — first/last name and phone (`PUT /api/auth/me`, since phone lives on `User`/Authentication, not `Worker`), date of birth, gender, marital status, nationality (country dropdown), native language (language dropdown), social security number (exactly 10 digits), German level, other languages spoken — plus any company-added `personal_info` questions appended below them; first/last name, phone, DOB, gender, nationality, and SSN are marked required on this form specifically, since the shared `PUT /api/users/{user}/worker` endpoint can't enforce that without breaking the other two forms below, which send different partial payloads to the same endpoint), *Address* (street/house number split, postal code, city, country dropdown, residence type), *Bank details* (bank name, account holder — a note asks it to match the worker's own name, not backend-enforced — IBAN, BIC), *Skills* (company-configurable questions, `category: skill`), *Personal documents* (a checklist — one upload slot per type, not a single shared dropdown+file — covering photo, passport, insurance card front/back, work permit front/back, Meldezettel, etc.).
+    - **Accounting** / **Payroll** — still placeholders.
+    - **Documents**: *Work contracts* (full history, sign a `pending_signature` one, download the attached file) and *My uploads* (job/event-related documents — a different type list than Personal documents above).
+    - **Share app**, **Settings** (Language/Company/Sign out/Delete account) — still placeholders.
 
-## Building Profile's sections — one at a time, and the one open design question
+## The dynamic-fields system this all builds on
 
-Per the plan: My info (personal details, address, skills, bank details), Accounting (hours worked per shift/event this month), Payroll (pay calculated from those hours), Documents (contract documents vs. the worker's own uploads), Share app (referral code), Settings (language, company switch, sign out, delete account).
+Company-configurable questions (Personal details/Skills) and document types (Personal documents/My uploads) are **not** hardcoded — the Employee module's `CustomFieldDefinition`/`CustomFieldAnswer`/`CustomDocumentType` system (see that module's README for the full rationale) drives all of it. Concretely:
 
-**The one real architectural decision still open**: several of these (skill questions, personal-info fields, document types) need to be *configurable per company* — one company might ask about a driving license (manual vs. automatic), another might not need that at all but wants a different custom question instead. This needs a proper dynamic-fields system on the backend (company-defined field definitions + worker-submitted answers), not hardcoded columns — to be designed before any of these sections gets built for real.
+- `components/CustomFieldSection.vue` (used for both Personal details and Skills, just a different `category` prop) fetches that category's field definitions plus the worker's existing answers, renders `CustomFieldForm.vue` (one input per field, widget chosen from `field_type`: text/number/date/select/boolean), and saves via a full-replace `POST` on save.
+- `components/DocumentUploadSection.vue` (used for both Personal documents and My uploads, just a different `category` prop — `"personal"` or `"work"`) merges the fixed baseline types with any active company-added ones (`api/documentTypes.js`), lets the worker upload against any of them, and lists their own documents already uploaded under that category.
+- `components/ContractsSection.vue` lists a worker's full contract history, lets them sign anything `pending_signature`, and downloads the attached file as a blob (the endpoint needs the Bearer token, so a plain link won't work — see `api/contracts.js`).
 
 ## Why the invite link carries both `token` and `company`
 
@@ -55,18 +61,32 @@ Every API call here needs to know which tenant's subdomain to hit (`{company-cod
 src/
   api/client.js         axios instance; base URL set per-request from the auth store's companyCode (used once logged in)
   api/invitations.js     fetchInvitation()/acceptInvitation() — built on a raw axios call, not client.js, since there's no session yet (see above)
-  api/documents.js        fetchMyDocuments()/uploadDocument() — wraps the Employee module's existing document endpoints
+  api/documents.js        fetchMyDocuments()/uploadDocument() — wraps the Employee module's document endpoints
+  api/documentTypes.js     fetchDocumentTypes(category) — merges the fixed baseline with active company-added types
+  api/customFields.js      fetchCustomFields(category)/fetchAnswers()/saveAnswers() — the company-configurable questions system
+  api/contracts.js         fetchContracts()/signContract()/downloadContract() (blob download, since the endpoint needs the auth token)
   stores/auth.js          Pinia store: companyCode, token, user, login()/logout()/setSession(), persisted to localStorage
   router/index.js         route guard: redirects to /login when unauthenticated (accept-invite and login are public)
   components/layout/AppShell.vue  bottom tab bar wrapping every authenticated page
   components/AccordionItem.vue    reusable expand/collapse item — Profile's sections and their nested sub-sections are all built from this
+  api/worker.js             fetchWorker()/updateWorker() — the fixed baseline personal/address/bank fields (partial updates)
+  api/authProfile.js        updateMe() — self-service name/phone edit (these live on User/Authentication, not Worker/Employee)
+  constants/countries.js    country list for the Nationality/Country dropdowns
+  constants/languages.js    language list for the Native language dropdown
+  components/CustomFieldForm.vue    renders one input per field definition, widget chosen from field_type
+  components/PersonalDetailsForm.vue  fixed personal fields (name, DOB, gender, marital status, nationality, languages, etc.)
+  components/AddressForm.vue          fixed address fields (street/house number split, postal code, city, country, residence type)
+  components/BankDetailsForm.vue      fixed bank fields — surfaces the backend's account-holder-name-must-match-you error
+  components/CustomFieldSection.vue  fetch+save wrapper around CustomFieldForm for one category (personal_info or skill)
+  components/DocumentUploadSection.vue  upload form + existing-documents list for one document category (personal or work)
+  components/ContractsSection.vue    contract history, sign, and file download
   views/AcceptInviteView.vue   the invite-completion screen
   views/LoginView.vue          returning-worker sign in
   views/HomeView.vue           the Home tab
   views/JobsView.vue           the Jobs tab
   views/CalendarView.vue       the Calendar tab
   views/ChatView.vue           the Chat tab
-  views/ProfileView.vue        the Profile tab — ID card + menu of sub-sections (still placeholders)
+  views/ProfileView.vue        the Profile tab — ID card + accordion of sections
   assets/main.css               design tokens — same palette/type as admin-panel, for brand consistency
 ```
 

@@ -25,10 +25,23 @@ class Worker extends Model
         'first_name',
         'last_name',
         'date_of_birth',
-        'address',
+        'gender',
+        'marital_status',
+        'nationality',
+        'native_language',
+        'social_security_number',
+        'german_language_level',
+        'languages_spoken',
+        'street',
+        'house_number',
         'postal_code',
         'city',
         'country',
+        'residence_type',
+        'bank_name',
+        'bank_account_holder_name',
+        'iban',
+        'bic',
         'status',
         'work_authorization_status',
         'work_authorization_type',
@@ -39,6 +52,7 @@ class Worker extends Model
     {
         return [
             'date_of_birth' => 'date',
+            'languages_spoken' => 'array',
             'work_authorization_expiry_date' => 'date',
         ];
     }

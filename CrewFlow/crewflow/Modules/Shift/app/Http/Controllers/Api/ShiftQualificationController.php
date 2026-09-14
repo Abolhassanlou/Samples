@@ -21,6 +21,7 @@ class ShiftQualificationController extends Controller
     {
         $required = $shift->requiredQualifications()->with('qualification')->get()->map(fn ($rq) => [
             'id' => $rq->id,
+            'shift_position_id' => $rq->shift_position_id,
             'qualification_id' => $rq->qualification_id,
             'qualification_name' => $rq->qualification->name,
         ]);
@@ -28,14 +29,28 @@ class ShiftQualificationController extends Controller
         return $this->success($required);
     }
 
+    /**
+     * `shift_position_id` is optional — omit it for a shift-wide
+     * requirement (only meaningful for a Shift with no positions at
+     * all); include it to scope the requirement to just that one role
+     * (e.g. only the "Math teacher" position needs a Math qualification,
+     * independent of whatever the shift's other positions need).
+     */
     public function store(Request $request, Shift $shift)
     {
         $data = $request->validate([
             'qualification_id' => ['required', 'integer', 'exists:qualifications,id'],
+            'shift_position_id' => ['nullable', 'integer', 'exists:shift_positions,id'],
         ]);
+
+        if (! empty($data['shift_position_id'])) {
+            $belongsToShift = $shift->positions()->where('id', $data['shift_position_id'])->exists();
+            abort_unless($belongsToShift, 422, 'That position does not belong to this shift.');
+        }
 
         $requirement = ShiftQualification::firstOrCreate([
             'shift_id' => $shift->id,
+            'shift_position_id' => $data['shift_position_id'] ?? null,
             'qualification_id' => $data['qualification_id'],
         ]);
 

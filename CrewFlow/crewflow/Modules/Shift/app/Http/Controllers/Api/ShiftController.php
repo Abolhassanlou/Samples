@@ -26,7 +26,7 @@ class ShiftController extends Controller
 
     public function index(Request $request)
     {
-        $query = Shift::with('positions.role')->orderByDesc('starts_at');
+        $query = Shift::with(['positions.role', 'positions.requiredQualifications.qualification'])->orderByDesc('starts_at');
 
         if (! $request->user()->can('shifts.dispatch')) {
             $query = ShiftVisibility::scopeFor($query, $request->user());
@@ -44,7 +44,7 @@ class ShiftController extends Controller
             'location_type' => $request->validated('location_type', 'on_site'),
             'quantity_needed' => $request->validated('quantity_needed', 1),
             'rate_type' => $request->validated('rate_type', 'hourly'),
-            'qualification_override' => $request->validated('qualification_override', false),
+            'qualification_policy' => $request->validated('qualification_policy', 'strict'),
         ]);
 
         return $this->success(new ShiftResource($shift), 'Shift created', 201);
@@ -61,7 +61,7 @@ class ShiftController extends Controller
             abort_unless($visible, 404);
         }
 
-        return $this->success(new ShiftResource($shift->load('positions.role')));
+        return $this->success(new ShiftResource($shift->load(['positions.role', 'positions.requiredQualifications.qualification'])));
     }
 
     public function update(ShiftRequest $request, Shift $shift)

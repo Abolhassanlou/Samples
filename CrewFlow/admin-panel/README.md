@@ -11,6 +11,7 @@ The Company Admin/Dispatcher-facing web app. Talks to `crewflow`'s tenant API (`
 - **Worker detail** (`/workers/:userId`): the personal record, employment relationship, and full contract history for one worker, plus a form to add a new contract. Deliberately a separate page from "Add worker" — a worker isn't defined by a contract, and can have several over time (see the Employee module's README for the full `Worker`/`CompanyWorker`/`EmploymentContract` rationale).
 - **Users** (`/users`): lists every registered user and lets an admin grant/revoke roles. This is an access-control tool, not a staffing tool — see Workers instead for "who can I assign to this shift".
 - **Roles** (`/roles`): manage roles themselves — create a role, edit its permissions, delete non-system roles.
+- **Custom Fields** (`/custom-fields`): define the company-configurable questions (Personal info / Skills) and document types (Personal / Work) workers see and fill in on their own profile — see the Employee module's README for the full `CustomFieldDefinition`/`CustomFieldAnswer`/`CustomDocumentType` system this drives. Four tabs, each listing existing items with an enable/disable toggle plus a form to add a new one.
 
 Split Users into two separate pages (rather than one combined page) specifically so the list stays usable once a company has a large roster — the Roles panel doesn't get pushed down the page by a long user table. All talk directly to existing backend endpoints.
 
@@ -70,7 +71,9 @@ Token-based (Sanctum personal access tokens via `Bearer` header), **not** cookie
 src/
   api/client.js         axios instance; base URL set per-request from the auth store's companyCode
   api/authorization.js  thin wrapper around the users/roles/permissions endpoints
-  api/workers.js         thin wrapper around worker/employment/contract/directory/qualifications/branches endpoints
+  api/workers.js         thin wrapper around worker/employment/contract/directory/qualifications/branches/documents endpoints
+  api/customFields.js    also has fetchWorkerAnswers() — a specific worker's skill/personal_info answers, for the Skills tab
+  api/documentTypes.js   fetchDocumentTypes(category) — merges fixed baseline + company-added types, used to split a worker's documents into Personal vs Work sections
   stores/auth.js         Pinia store: companyCode, token, user, login()/logout(), persisted to localStorage
   router/index.js        route guard: redirects to /login when unauthenticated, and away from /login when already signed in
   components/layout/AppShell.vue  sidebar (with icons) + topbar wrapping every authenticated page
@@ -78,9 +81,13 @@ src/
   views/DashboardView.vue placeholder post-login screen
   views/WorkersView.vue   dispatcher-facing worker search (qualification/branch/contract/availability filters)
   views/CreateWorkerView.vue  account + personal record + employment relationship + qualifications + availability (NO contract — see below)
-  views/WorkerDetailView.vue  one worker's full profile: personal details, employment relationship, and contract history/creation
+  views/WorkerDetailView.vue  one worker's full profile, organized into tabs (Profile / Employment / Skills / Documents / Contracts) instead of one long scroll: Profile (all fixed personal fields — gender, marital status, nationality, address, bank details, work authorization), Employment (the employment relationship), Skills (the worker's own answers to skill questions — read-only here, they edit from their own profile), Documents (split into Personal vs Work sections, matching the Employee module's category system — approve/reject, View opens inline in a new tab, Download saves as "{type}.{worker name}.{date}.{ext}" with the real extension pulled from file_path), Contracts (history/creation, same View/Download pattern)
   views/UsersView.vue     user list + role assignment
   views/RolesView.vue     role/permission management
+  views/CustomFieldsView.vue  company-configurable personal-info/skill questions and document types — each item has Disable/Enable (soft, keeps history), Modify (inline edit form), and Delete (permanent — for a question, also deletes every worker's answer to it; confirmed via a warning dialog first)
+  constants/countries.js      country list for Nationality/Country dropdowns
+  constants/languages.js      language list for the Native language dropdown
+  api/customFields.js     thin wrapper around the custom-fields/custom-document-types endpoints
   assets/main.css         design tokens (colors, fonts) shared globally
 ```
 

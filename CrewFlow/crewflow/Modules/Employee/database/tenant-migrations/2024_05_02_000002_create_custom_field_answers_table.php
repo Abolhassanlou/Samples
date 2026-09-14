@@ -18,10 +18,12 @@ return new class extends Migration
 
             // Everything stored as text regardless of field_type — a
             // boolean becomes "true"/"false", a number becomes its
-            // string form, a select becomes the chosen option string.
-            // Simpler than a differently-typed column per field_type,
-            // and the frontend already knows how to parse/render each
-            // type from the field definition.
+            // string form, a select becomes the chosen option string,
+            // a multi_select becomes a JSON-encoded array string (e.g.
+            // '["middle_school","high_school"]'). Simpler than a
+            // differently-typed column per field_type, and the frontend
+            // already knows how to parse/render each type from the
+            // field definition.
             $table->text('value')->nullable();
 
             $table->timestamps();

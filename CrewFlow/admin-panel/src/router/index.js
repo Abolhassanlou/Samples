@@ -8,6 +8,7 @@ import WorkersView from '@/views/WorkersView.vue'
 import CreateWorkerView from '@/views/CreateWorkerView.vue'
 import InviteWorkerView from '@/views/InviteWorkerView.vue'
 import WorkerDetailView from '@/views/WorkerDetailView.vue'
+import CustomFieldsView from '@/views/CustomFieldsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -52,6 +53,11 @@ const router = createRouter({
       path: '/roles',
       name: 'roles',
       component: RolesView,
+    },
+    {
+      path: '/custom-fields',
+      name: 'custom-fields',
+      component: CustomFieldsView,
     },
   ],
 })

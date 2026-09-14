@@ -10,6 +10,12 @@ The actual work a company posts, workers express interest in, and a dispatcher a
 
 **Backward compatibility:** a Shift with zero `ShiftPosition` rows works exactly as before — plain `quantity_needed` headcount, no role distinction. `Shift::isFull()` automatically switches to "every position full" only once a Shift actually has positions.
 
+## Per-position qualification requirements (not just per-shift)
+
+`ShiftQualification` can scope a requirement to one specific `ShiftPosition` (`shift_position_id` set) instead of the whole Shift — necessary because different roles on the same Shift often need completely independent qualifications. A combined "Math & English" class, for example, is one Shift with two positions: the Math-teacher position requires a Math qualification, the English-teacher position requires an unrelated English one — nobody should need both just to be assignable to either role.
+
+This changes what `ShiftVisibility` actually checks once a Shift has positions: a worker doesn't need to satisfy every position's requirements, only **at least one**. Qualifying for just the Math-teacher role is enough to see the shift at all, even with zero English qualification. Shift-wide requirements (`shift_position_id` null) only apply to a Shift with no positions at all — once positions exist, define requirements per-position instead (see `POST /api/shifts/{shift}/qualifications`, which now accepts an optional `shift_position_id`).
+
 ## Waitlisting
 
 `ShiftInterestController::store()` no longer rejects interest when a shift/position is already full — it records the interest as `waitlisted` instead of `pending`. A dispatcher can still see waitlisted workers (`GET /api/shifts/{shift}/interests`) and manually assign one if a spot opens (e.g. after an approved cancellation).
@@ -106,13 +112,19 @@ DELETE /api/events/{event}/transport-groups/{transportGroup}                    
 A Dispatcher/Admin (`shifts.dispatch`) always sees every Shift, unfiltered — full visibility is required to manage. A plain Worker only sees a Shift if **both** hold (see `Services/ShiftVisibility.php`):
 
 1. **Access** — either:
-   - the Shift's own `branch_id` is the worker's home branch (`WorkerProfile.home_branch_id`, from Employee), **or**
+   - the Shift's own `branch_id` is the worker's home branch (`CompanyWorker.home_branch_id`, from Employee), **or**
    - the worker has been explicitly activated for that Shift's Event via `EventWorkerAccess`.
-2. **Qualification** — the worker holds *every* qualification the Shift requires (`ShiftQualification`, referencing Employee's `Qualification` catalog), **unless the Shift itself has `qualification_override: true`** — a deliberate escape hatch for staffing shortages (e.g. an unpopular night shift nobody with the right qualification wants to take). When set, this skips the qualification check entirely for that one Shift; access (branch/event) is still required either way. A Shift with no requirements at all is visible to anyone who passes the access check regardless.
+2. **Qualification** — the worker holds *every* qualification required for **at least one** of the Shift's positions (see "Per-position qualification requirements" above) — unless `qualification_policy` says otherwise:
 
-Set it when creating/editing a shift: `POST /api/shifts { ..., qualification_override: true }` (`shifts.create`, same as any other shift field).
+| `qualification_policy` | Who sees it | What a dispatcher sees afterward |
+|---|---|---|
+| `strict` (default) | Only workers who qualify for at least one position | Nothing extra — everyone who could act already qualifies |
+| `override` | Everyone, regardless of qualification | Nothing extra — no warning, ever |
+| `warn` | Everyone, regardless of qualification | A `qualification_warning: true` flag on that worker's `ShiftInterestResource`/`AssignmentResource` if they don't actually meet the requirement |
 
-Failing either check **hides** the shift entirely (404 on direct access, absent from the list) — it is never shown disabled/greyed out, per this project's explicit design choice. This applies to `GET /api/shifts`, `GET /api/shifts/{shift}`, and `POST /api/shifts/{shift}/interest` alike.
+`override` and `warn` are both opt-in escape hatches for staffing shortages (e.g. an unpopular night shift nobody qualified wants) — they only differ in whether a dispatcher gets told about the mismatch afterward. Set the policy when creating/editing a shift: `POST /api/shifts { ..., qualification_policy: warn }` (`shifts.create`, same as any other shift field). A Shift with no requirements at all is visible to anyone who passes the access check regardless of policy.
+
+Failing the check under `strict` **hides** the shift entirely (404 on direct access, absent from the list) — it is never shown disabled/greyed out, per this project's explicit design choice. This applies to `GET /api/shifts`, `GET /api/shifts/{shift}`, and `POST /api/shifts/{shift}/interest` alike.
 
 ### Cross-branch access is two steps, on purpose
 
@@ -125,7 +137,7 @@ By default, only a Shift's own branch can see it. To let workers from **another*
 
 ```
 GET    /api/shifts/{shift}/qualifications
-POST   /api/shifts/{shift}/qualifications           { qualification_id }                [shifts.create]
+POST   /api/shifts/{shift}/qualifications           { qualification_id, shift_position_id? }   [shifts.create]
 DELETE /api/shifts/{shift}/qualifications/{qualification}                                [shifts.create]
 
 GET    /api/events/{event}/branch-access

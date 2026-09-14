@@ -1,67 +1,17 @@
 <script setup>
-import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
 import AccordionItem from '@/components/AccordionItem.vue'
-import { fetchMyDocuments, uploadDocument } from '@/api/documents'
+import CustomFieldSection from '@/components/CustomFieldSection.vue'
+import DocumentUploadSection from '@/components/DocumentUploadSection.vue'
+import ContractsSection from '@/components/ContractsSection.vue'
+import PersonalDetailsForm from '@/components/PersonalDetailsForm.vue'
+import AddressForm from '@/components/AddressForm.vue'
+import BankDetailsForm from '@/components/BankDetailsForm.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
-
-const DOCUMENT_TYPES = [
-  { value: 'identity_document', label: 'Photo ID' },
-  { value: 'residence_permit', label: 'Residence permit' },
-  { value: 'work_permit', label: 'Work permit' },
-  { value: 'social_security_card', label: 'Social security card' },
-  { value: 'driving_license', label: 'Driving license' },
-  { value: 'criminal_record', label: 'Criminal record check' },
-  { value: 'certificate', label: 'Certificate' },
-  { value: 'other', label: 'Other' },
-]
-
-const myDocuments = ref([])
-const loadingDocuments = ref(true)
-
-const uploadType = ref('identity_document')
-const uploadFile = ref(null)
-const uploading = ref(false)
-const uploadError = ref('')
-
-async function loadDocuments() {
-  loadingDocuments.value = true
-  try {
-    myDocuments.value = await fetchMyDocuments()
-  } finally {
-    loadingDocuments.value = false
-  }
-}
-
-onMounted(loadDocuments)
-
-function handleFileChange(event) {
-  uploadFile.value = event.target.files[0] || null
-}
-
-async function handleUpload() {
-  if (!uploadFile.value) return
-
-  uploadError.value = ''
-  uploading.value = true
-  try {
-    await uploadDocument({ documentType: uploadType.value, file: uploadFile.value })
-    uploadFile.value = null
-    await loadDocuments()
-  } catch (error) {
-    uploadError.value = error.response?.data?.message || 'Could not upload this document.'
-  } finally {
-    uploading.value = false
-  }
-}
-
-function documentTypeLabel(type) {
-  return DOCUMENT_TYPES.find((t) => t.value === type)?.label || type
-}
 
 function handleLogout() {
   auth.logout()
@@ -76,29 +26,37 @@ function handleLogout() {
     </header>
 
     <div class="id-card">
-      <div class="avatar">{{ auth.user?.name?.charAt(0) }}</div>
-      <div class="id-info">
-        <span class="id-name">{{ auth.user?.name }}</span>
-        <span class="id-company">{{ auth.companyCode }}</span>
+      <div class="id-card-main">
+        <div class="avatar">{{ auth.user?.name?.charAt(0) }}</div>
+        <div class="id-info">
+          <span class="id-name">{{ auth.user?.name }}</span>
+          <span class="id-company">{{ auth.companyCode }}</span>
+        </div>
       </div>
+      <button class="logout-button" @click="handleLogout">Sign out</button>
     </div>
 
     <div class="accordion-group">
-      <AccordionItem label="My info" hint="Personal details, address, skills, bank details">
+      <AccordionItem label="My info" hint="Personal details, address, bank, skills, personal documents">
         <div class="nested-group">
-          <AccordionItem label="Personal details" hint="Includes your address" nested>
-            <p class="coming-soon">
-              Coming soon — these questions are configured per company, which needs a
-              company-configurable fields system on the backend first.
-            </p>
+          <AccordionItem label="Personal details" nested>
+            <PersonalDetailsForm />
+            <div class="custom-questions">
+              <h4 class="custom-questions-title">Additional questions from your company</h4>
+              <CustomFieldSection category="personal_info" />
+            </div>
           </AccordionItem>
-          <AccordionItem label="Skills" hint="Size, car, license, experience, and more" nested>
-            <p class="coming-soon">
-              Coming soon — same as above, skill questions are company-defined.
-            </p>
+          <AccordionItem label="Address" nested>
+            <AddressForm />
           </AccordionItem>
           <AccordionItem label="Bank details" nested>
-            <p class="coming-soon">Coming soon.</p>
+            <BankDetailsForm />
+          </AccordionItem>
+          <AccordionItem label="Skills" hint="Size, car, license, experience, and more" nested>
+            <CustomFieldSection category="skill" />
+          </AccordionItem>
+          <AccordionItem label="Personal documents" hint="Photo, passport, ID, bank card, and more" nested>
+            <DocumentUploadSection category="personal" />
           </AccordionItem>
         </div>
       </AccordionItem>
@@ -115,35 +73,14 @@ function handleLogout() {
         </p>
       </AccordionItem>
 
-      <AccordionItem label="Documents" hint="Work contracts, and what you've uploaded">
+      <AccordionItem label="Documents" hint="Work contracts, and job-related uploads">
         <div class="nested-group">
           <AccordionItem label="Work contracts" nested>
-            <p class="coming-soon">Coming soon — shows your contract history.</p>
+            <ContractsSection />
           </AccordionItem>
 
-          <AccordionItem label="My uploads" nested>
-            <p v-if="loadingDocuments" class="coming-soon">Loading…</p>
-
-            <template v-else>
-              <ul v-if="myDocuments.length > 0" class="doc-list">
-                <li v-for="doc in myDocuments" :key="doc.id" class="doc-item">
-                  <span class="doc-type">{{ documentTypeLabel(doc.document_type) }}</span>
-                  <span class="doc-status" :class="`doc-status--${doc.review_status}`">{{ doc.review_status }}</span>
-                </li>
-              </ul>
-              <p v-else class="coming-soon">No documents uploaded yet.</p>
-
-              <div class="upload-form">
-                <select v-model="uploadType" class="upload-select">
-                  <option v-for="t in DOCUMENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
-                </select>
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png" @change="handleFileChange" class="upload-input" />
-                <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
-                <button class="upload-button" :disabled="!uploadFile || uploading" @click="handleUpload">
-                  {{ uploading ? 'Uploading…' : 'Upload' }}
-                </button>
-              </div>
-            </template>
+          <AccordionItem label="My uploads" hint="Job/event-related documents" nested>
+            <DocumentUploadSection category="work" />
           </AccordionItem>
         </div>
       </AccordionItem>
@@ -159,9 +96,6 @@ function handleLogout() {
           </AccordionItem>
           <AccordionItem label="Company" nested>
             <p class="coming-soon">{{ auth.companyCode }} — switching companies coming soon.</p>
-          </AccordionItem>
-          <AccordionItem label="Sign out" nested>
-            <button class="logout-button" @click="handleLogout">Sign out</button>
           </AccordionItem>
           <AccordionItem label="Delete account" nested>
             <p class="coming-soon">Coming soon.</p>
@@ -188,12 +122,20 @@ function handleLogout() {
 .id-card {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin: 0.75rem 1.25rem 1.25rem;
   padding: 1rem;
   background: #fff;
   border: 1px solid var(--color-line);
   border-radius: 12px;
+}
+
+.id-card-main {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
 }
 
 .avatar {
@@ -248,92 +190,29 @@ function handleLogout() {
   margin: 0;
 }
 
-.doc-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1rem;
-}
-
-.doc-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--color-line);
-  font-size: 0.82rem;
-}
-
-.doc-item:last-child {
-  border-bottom: none;
-}
-
-.doc-status {
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 0.12rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(74, 90, 106, 0.12);
-  color: var(--color-slate);
-  text-transform: capitalize;
-}
-
-.doc-status--approved {
-  background: rgba(76, 139, 108, 0.15);
-  color: var(--color-green);
-}
-
-.doc-status--rejected {
-  background: rgba(181, 83, 63, 0.12);
-  color: var(--color-danger);
-}
-
-.upload-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding-top: 0.75rem;
+.custom-questions {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
   border-top: 1px dashed var(--color-line);
 }
 
-.upload-select,
-.upload-input {
-  font-size: 0.82rem;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.upload-error {
-  color: var(--color-danger);
-  font-size: 0.78rem;
-  margin: 0;
-}
-
-.upload-button {
+.custom-questions-title {
+  font-family: var(--font-display);
   font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.55rem;
-  color: var(--color-ink);
-  background: var(--color-amber);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.upload-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  color: var(--color-slate);
+  margin: 0 0 0.9rem;
 }
 
 .logout-button {
-  font-size: 0.85rem;
+  flex-shrink: 0;
+  font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.55rem 1rem;
+  padding: 0.45rem 0.85rem;
   color: var(--color-danger);
   background: #fff;
   border: 1px solid var(--color-line);
   border-radius: 8px;
   cursor: pointer;
+  white-space: nowrap;
 }
 </style>

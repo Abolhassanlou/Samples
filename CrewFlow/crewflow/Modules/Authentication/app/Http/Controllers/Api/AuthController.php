@@ -2,6 +2,7 @@
 
 namespace Modules\Authentication\Http\Controllers\Api;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Modules\Core\Http\Controllers\Controller;
 use Modules\Authentication\Http\Requests\LoginRequest;
@@ -69,5 +70,25 @@ class AuthController extends Controller
     public function me()
     {
         return $this->success(new UserResource(auth()->user()));
+    }
+
+    /**
+     * Self-service update of a user's own name/phone — deliberately
+     * separate from Authentication's users.manage-gated endpoints (there
+     * is no such endpoint for editing someone ELSE's name/phone; a
+     * worker only ever updates their own). Nothing here touches roles,
+     * permissions, email, or password.
+     */
+    public function updateMe(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'phone' => ['sometimes', 'string', 'max:20'],
+        ]);
+
+        $user = auth()->user();
+        $user->update($data);
+
+        return $this->success(new UserResource($user), 'Profile updated');
     }
 }
