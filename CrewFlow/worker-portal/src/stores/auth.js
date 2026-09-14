@@ -81,6 +81,17 @@ export const useAuthStore = defineStore('auth', {
       persist(this)
     },
 
+    /**
+     * Merges a partial user update into the store — used after
+     * PUT /api/auth/me (self-service name/phone edit) so the topbar and
+     * anywhere else that reads auth.user reflect the change immediately,
+     * without needing a full page reload.
+     */
+    updateUser(partial) {
+      this.user = { ...this.user, ...partial }
+      persist(this)
+    },
+
     logout() {
       this.companyCode = null
       this.token = null

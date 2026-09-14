@@ -22,12 +22,12 @@ return new class extends Migration
 
             $table->string('label');
 
-            // text | number | boolean | select | date — determines which
-            // input widget the frontend renders.
+            // text | number | boolean | select | multi_select | date —
+            // determines which input widget the frontend renders.
             $table->string('field_type');
 
-            // Only used when field_type = "select" — a JSON array of
-            // option strings, e.g. ["S","M","L","XL"].
+            // Used when field_type = "select" or "multi_select" — a
+            // JSON array of option strings, e.g. ["S","M","L","XL"].
             $table->json('options')->nullable();
 
             $table->boolean('is_required')->default(false);

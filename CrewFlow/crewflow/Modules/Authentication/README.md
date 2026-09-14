@@ -36,6 +36,7 @@ Identity management for the tenant-facing product: the `User` model, registratio
 POST /api/auth/register   { name, email, phone, password, password_confirmation }
 POST /api/auth/login      { email, password }
 GET  /api/auth/me         (Bearer token)
+PUT  /api/auth/me         { name?, phone? }   self-service only — no endpoint exists to edit someone ELSE's name/phone
 POST /api/auth/logout     (Bearer token)
 
 GET  /api/users           list every user in this company        [users.manage]

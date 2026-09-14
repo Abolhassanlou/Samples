@@ -98,3 +98,68 @@ export function grantQualification(userId, qualificationId) {
 export function syncAvailability(userId, slots) {
   return client.post(`users/${userId}/availability`, { slots }).then((r) => r.data.data)
 }
+
+// --- Documents (admin view of a specific worker's uploads) ---
+
+export function fetchWorkerDocuments(userId) {
+  return client.get(`users/${userId}/documents`).then((r) => r.data.data)
+}
+
+export function reviewDocument(documentId, payload) {
+  return client.post(`documents/${documentId}/review`, payload).then((r) => r.data.data)
+}
+
+/**
+ * Returns the raw file as a blob and triggers the browser's own
+ * download — the endpoint needs the Bearer token, so a plain <a href>
+ * can't be used directly (same reasoning as the contract download in
+ * worker-portal).
+ */
+export async function downloadDocument(documentId, filename = 'document') {
+  const response = await client.get(`documents/${documentId}/download`, { responseType: 'blob' })
+
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+/**
+ * Opens the file in a new tab instead of forcing a save — for a photo
+ * or PDF, this lets someone just LOOK at it without cluttering their
+ * downloads folder. No `download` attribute set, so the browser renders
+ * it natively by its actual MIME type (axios's blob already carries the
+ * real Content-Type from the response).
+ */
+export async function viewDocument(documentId) {
+  const response = await client.get(`documents/${documentId}/download`, { responseType: 'blob' })
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  window.open(url, '_blank')
+}
+
+export async function downloadContractFile(userId, contractId, filename = 'contract') {
+  const response = await client.get(`users/${userId}/contracts/${contractId}/download`, {
+    responseType: 'blob',
+  })
+
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+export async function viewContractFile(userId, contractId) {
+  const response = await client.get(`users/${userId}/contracts/${contractId}/download`, {
+    responseType: 'blob',
+  })
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  window.open(url, '_blank')
+}

@@ -24,6 +24,12 @@ class EmploymentContractResource extends JsonResource
             'is_permanent' => $this->isPermanent(),
             'status' => $this->status,
             'has_file' => $this->hasFile(),
+            // Exposed so the frontend can pull the real file extension
+            // (e.g. "employment-contracts/xJ3ha82.jpg") when naming a
+            // downloaded copy — without this, a download's filename has
+            // no extension at all and the OS can't tell what kind of
+            // file it actually is, even though the content is fine.
+            'file_path' => $this->file_path,
             'signed_at' => $this->signed_at,
             'is_signed' => $this->isSigned(),
             'termination_date' => $this->termination_date,

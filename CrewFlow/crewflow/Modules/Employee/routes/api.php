@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:documents.review')->group(function () {
         Route::get('documents/pending', [WorkerDocumentController::class, 'pending']);
         Route::post('documents/{document}/review', [WorkerDocumentController::class, 'review']);
+        Route::get('users/{user}/documents', [WorkerDocumentController::class, 'forWorker']);
     });
 
     // Company-configurable "questions" (Personal details / Skills) and
@@ -89,9 +90,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:users.manage')->group(function () {
         Route::post('custom-fields', [CustomFieldDefinitionController::class, 'store']);
         Route::put('custom-fields/{customField}', [CustomFieldDefinitionController::class, 'update']);
+        Route::delete('custom-fields/{customField}', [CustomFieldDefinitionController::class, 'destroy']);
 
         Route::post('custom-document-types', [CustomDocumentTypeController::class, 'store']);
         Route::put('custom-document-types/{documentType}', [CustomDocumentTypeController::class, 'update']);
+        Route::delete('custom-document-types/{documentType}', [CustomDocumentTypeController::class, 'destroy']);
     });
 
     // A worker's own answers to those custom questions — self or users.manage.

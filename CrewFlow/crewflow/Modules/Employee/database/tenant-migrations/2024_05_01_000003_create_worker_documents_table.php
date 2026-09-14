@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('worker_documents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('worker_id')->constrained('users')->cascadeOnDelete();
-            $table->string('document_type'); // identity_document | residence_permit | work_permit | social_security_card | driving_license | criminal_record | certificate | other
+            $table->string('document_type'); // see WorkerDocumentController::FIXED_DOCUMENT_TYPES for the current baseline list (plus any active CustomDocumentType)
             $table->string('file_path');
             $table->string('document_number')->nullable();
             $table->date('issued_at')->nullable();

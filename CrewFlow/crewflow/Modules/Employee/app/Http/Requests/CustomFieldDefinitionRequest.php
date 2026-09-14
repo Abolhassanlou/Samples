@@ -19,7 +19,7 @@ class CustomFieldDefinitionRequest extends FormRequest
             'category' => [$isCreating ? 'required' : 'sometimes', 'in:personal_info,skill'],
             'key' => [$isCreating ? 'required' : 'sometimes', 'string', 'max:100', 'alpha_dash', 'unique:custom_field_definitions,key,'.$this->route('customField')?->id],
             'label' => [$isCreating ? 'required' : 'sometimes', 'string', 'max:255'],
-            'field_type' => [$isCreating ? 'required' : 'sometimes', 'in:text,number,boolean,select,date'],
+            'field_type' => [$isCreating ? 'required' : 'sometimes', 'in:text,number,boolean,select,multi_select,date'],
             'options' => ['nullable', 'array'],
             'options.*' => ['string'],
             'is_required' => ['sometimes', 'boolean'],

@@ -10,6 +10,7 @@ const navItems = [
   { to: '/workers', label: 'Workers', icon: 'workers' },
   { to: '/users', label: 'Users', icon: 'users' },
   { to: '/roles', label: 'Roles', icon: 'roles' },
+  { to: '/custom-fields', label: 'Custom Fields', icon: 'customFields' },
 ]
 
 function handleLogout() {
@@ -82,6 +83,18 @@ function handleLogout() {
           >
             <path d="M12 3.5l6.5 2.6v5.4c0 4-2.7 7.2-6.5 8.5-3.8-1.3-6.5-4.5-6.5-8.5V6.1L12 3.5z" />
             <path d="M9.2 12l1.9 1.9 3.7-3.9" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+
+          <svg
+            v-else-if="item.icon === 'customFields'"
+            class="nav-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <rect x="4" y="3.5" width="16" height="17" rx="1.8" />
+            <path d="M7.5 8h9M7.5 12h9M7.5 16h5.5" stroke-linecap="round" />
           </svg>
 
           {{ item.label }}

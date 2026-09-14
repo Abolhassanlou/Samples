@@ -4,6 +4,7 @@ namespace Modules\Shift\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\Shift\Services\ShiftVisibility;
 
 class AssignmentResource extends JsonResource
 {
@@ -21,6 +22,15 @@ class AssignmentResource extends JsonResource
             'transport_amount' => $this->transport_amount,
             'status' => $this->status,
             'confirmed_at' => $this->confirmed_at,
+            // See the identical field on ShiftInterestResource — same
+            // reasoning applies here.
+            'qualification_warning' => $this->whenLoaded('shift', function () {
+                if ($this->shift->qualification_policy !== 'warn') {
+                    return false;
+                }
+
+                return ! ShiftVisibility::workerQualifies($this->shift, $this->worker_id);
+            }),
         ];
     }
 }

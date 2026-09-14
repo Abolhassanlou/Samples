@@ -17,6 +17,14 @@ class ShiftPositionResource extends JsonResource
             'quantity_needed' => $this->quantity_needed,
             'confirmed_count' => $this->confirmedAssignmentsCount(),
             'hourly_rate' => $this->hourly_rate,
+            'required_qualifications' => $this->whenLoaded(
+                'requiredQualifications',
+                fn () => $this->requiredQualifications->map(fn ($rq) => [
+                    'id' => $rq->id,
+                    'qualification_id' => $rq->qualification_id,
+                    'qualification_name' => $rq->qualification?->name,
+                ])
+            ),
         ];
     }
 }

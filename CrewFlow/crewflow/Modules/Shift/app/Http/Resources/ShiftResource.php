@@ -40,7 +40,7 @@ class ShiftResource extends JsonResource
             'starts_at' => $this->starts_at,
             'ends_at' => $this->ends_at,
             'status' => $this->status,
-            'qualification_override' => $this->qualification_override,
+            'qualification_policy' => $this->qualification_policy,
             'created_at' => $this->created_at,
         ];
     }
