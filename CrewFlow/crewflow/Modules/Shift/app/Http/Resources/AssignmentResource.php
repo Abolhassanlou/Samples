@@ -22,6 +22,16 @@ class AssignmentResource extends JsonResource
             'transport_amount' => $this->transport_amount,
             'status' => $this->status,
             'confirmed_at' => $this->confirmed_at,
+            // Set only when a shift edit forced this assignment back to
+            // pending_worker_confirmation after it had already been
+            // confirmed — a plain-language summary of exactly what
+            // changed (see ShiftController::update()). Cleared once the
+            // worker re-confirms.
+            'change_note' => $this->change_note,
+            // Full shift details (title, dates, location, rate) — used
+            // by the worker-facing Jobs tab so "my assignments" can be
+            // rendered without a second request per row.
+            'shift' => $this->whenLoaded('shift', fn () => new ShiftResource($this->shift)),
             // See the identical field on ShiftInterestResource — same
             // reasoning applies here.
             'qualification_warning' => $this->whenLoaded('shift', function () {

@@ -17,6 +17,7 @@ class AuthenticationServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerConfig();
+        $this->registerViews();
         $this->registerRoutes();
         // Note: deliberately NOT calling loadMigrationsFrom() here. This
         // module's migrations must run ONLY as tenant migrations (via
@@ -25,6 +26,19 @@ class AuthenticationServiceProvider extends ServiceProvider
         // `php artisan migrate`. Only the Tenancy module's own provider
         // should call loadMigrationsFrom(), since its tables genuinely
         // belong in the Central database.
+    }
+
+    /**
+     * Registers resources/views under the 'authentication::' namespace
+     * — needed for PasswordResetMail's ->text('authentication::emails.
+     * password-reset-plain', ...) to resolve at all. Missing this
+     * produces "No hint path defined for [authentication]." the moment
+     * that mailable tries to render, not at boot time — easy to miss
+     * until the feature is actually exercised.
+     */
+    protected function registerViews(): void
+    {
+        $this->loadViewsFrom(module_path($this->moduleName, 'resources/views'), $this->moduleNameLower);
     }
 
     /**

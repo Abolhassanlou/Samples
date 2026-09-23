@@ -2,25 +2,57 @@
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
-import { inviteWorker } from '@/api/workers'
+import { inviteWorker, reactivateWorker } from '@/api/workers'
 
 const email = ref('')
 const submitting = ref(false)
 const errorMessage = ref('')
 const sentTo = ref('')
 
+// Set when the backend responds 409 { reactivatable: true } — a worker
+// with this email already exists but is currently inactive/blocked.
+// Holds what's needed to offer "Reactivate them?" instead of a dead-end
+// error.
+const reactivatable = ref(null) // { userId, currentStatus, email } | null
+const reactivating = ref(false)
+
 async function handleSubmit() {
   errorMessage.value = ''
+  reactivatable.value = null
   submitting.value = true
   try {
     await inviteWorker(email.value.trim())
     sentTo.value = email.value.trim()
     email.value = ''
   } catch (error) {
-    errorMessage.value =
-      error.response?.data?.message || 'Could not send this invitation. Check the email and try again.'
+    const errors = error.response?.data?.errors
+    if (errors?.reactivatable) {
+      reactivatable.value = {
+        userId: errors.user_id,
+        currentStatus: errors.current_status,
+        email: email.value.trim(),
+      }
+    } else {
+      errorMessage.value =
+        error.response?.data?.message || 'Could not send this invitation. Check the email and try again.'
+    }
   } finally {
     submitting.value = false
+  }
+}
+
+async function handleReactivate() {
+  reactivating.value = true
+  try {
+    await reactivateWorker(reactivatable.value.userId)
+    sentTo.value = reactivatable.value.email
+    reactivatable.value = null
+    email.value = ''
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Could not reactivate this worker.'
+    reactivatable.value = null
+  } finally {
+    reactivating.value = false
   }
 }
 </script>
@@ -41,6 +73,17 @@ async function handleSubmit() {
       </p>
 
       <p v-if="errorMessage" class="error-banner" role="alert">{{ errorMessage }}</p>
+
+      <div v-if="reactivatable" class="reactivate-banner">
+        <p>
+          A worker with <strong>{{ reactivatable.email }}</strong> already exists but is
+          currently <strong>{{ reactivatable.currentStatus }}</strong>. Their personal details,
+          documents, and contract history are all still there.
+        </p>
+        <button class="reactivate-button" :disabled="reactivating" @click="handleReactivate">
+          {{ reactivating ? 'Reactivating…' : 'Reactivate them' }}
+        </button>
+      </div>
 
       <form @submit.prevent="handleSubmit">
         <label class="field">
@@ -105,6 +148,42 @@ async function handleSubmit() {
   padding: 0.75rem 1rem;
   font-size: 0.85rem;
   margin: 0 0 1.25rem;
+}
+
+.reactivate-banner {
+  background: rgba(224, 151, 58, 0.1);
+  border: 1px solid rgba(224, 151, 58, 0.35);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  margin: 0 0 1.25rem;
+}
+
+.reactivate-banner p {
+  font-size: 0.85rem;
+  color: var(--color-ink);
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+
+.reactivate-button {
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: var(--color-amber);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.reactivate-button:hover:not(:disabled) {
+  background: var(--color-amber-dark);
+}
+
+.reactivate-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .field {

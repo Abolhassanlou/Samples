@@ -7,6 +7,7 @@ const router = useRouter()
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/shifts', label: 'Shifts', icon: 'shifts' },
   { to: '/workers', label: 'Workers', icon: 'workers' },
   { to: '/users', label: 'Users', icon: 'users' },
   { to: '/roles', label: 'Roles', icon: 'roles' },
@@ -43,6 +44,20 @@ function handleLogout() {
             <rect x="13.5" y="3.5" width="7" height="7" rx="1.2" />
             <rect x="3.5" y="13.5" width="7" height="7" rx="1.2" />
             <rect x="13.5" y="13.5" width="7" height="7" rx="1.2" />
+          </svg>
+
+          <svg
+            v-else-if="item.icon === 'shifts'"
+            class="nav-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <rect x="3.5" y="5" width="17" height="15" rx="1.8" />
+            <path d="M3.5 9.5h17" stroke-linecap="round" />
+            <path d="M8 3.5v3M16 3.5v3" stroke-linecap="round" />
+            <path d="M12 12.5v3l2 1.3" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
 
           <svg

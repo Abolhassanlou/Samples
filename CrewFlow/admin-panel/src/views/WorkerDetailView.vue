@@ -63,6 +63,23 @@ const errorMessage = ref('')
 const savingWorker = ref(false)
 const savingEmployment = ref(false)
 
+/**
+ * Bug fix: an HTML date input can only display "YYYY-MM-DD" — the API
+ * returns full ISO datetimes ("2027-05-01T00:00:00.000000Z"), which the
+ * input silently fails to show (looks empty), and saving that empty
+ * display back to the server actually WIPES the date, even though it
+ * had been stored correctly all along. Previously only date_of_birth
+ * was sliced down like this; work_authorization_expiry_date (and any
+ * other date field on Worker) needs the exact same treatment.
+ */
+function normalizeWorkerDates(w) {
+  return {
+    ...w,
+    date_of_birth: w.date_of_birth?.slice(0, 10) || '',
+    work_authorization_expiry_date: w.work_authorization_expiry_date?.slice(0, 10) || '',
+  }
+}
+
 async function loadAll() {
   if (!hasAccess.value) {
     loading.value = false
@@ -83,7 +100,7 @@ async function loadAll() {
       fetchDocumentTypes('personal'),
       fetchDocumentTypes('work'),
     ])
-    worker.value = { ...w, date_of_birth: w.date_of_birth?.slice(0, 10) || '' }
+    worker.value = normalizeWorkerDates(w)
     employment.value = e
     contracts.value = c
     branches.value = b
@@ -105,7 +122,7 @@ async function saveWorker() {
   savingWorker.value = true
   try {
     const updated = await updateWorker(userId, worker.value)
-    worker.value = { ...updated, date_of_birth: updated.date_of_birth?.slice(0, 10) || '' }
+    worker.value = normalizeWorkerDates(updated)
   } finally {
     savingWorker.value = false
   }
@@ -235,6 +252,62 @@ async function submitNewContract() {
 async function setContractStatus(contract, status) {
   const updated = await updateContract(userId, contract.id, { status })
   contracts.value = contracts.value.map((c) => (c.id === contract.id ? updated : c))
+}
+
+// "Modify" — inline edit, the full contract (previously only status was
+// editable via the dropdown; contract_number/weekly_hours/notes/the
+// actual document file had no way to view or change after creation).
+const editingContractId = ref(null)
+const editContractForm = ref({})
+const editContractFile = ref(null)
+const savingContract = ref(false)
+const editContractError = ref('')
+
+function startEditContract(contract) {
+  editingContractId.value = contract.id
+  editContractError.value = ''
+  editContractFile.value = null
+  editContractForm.value = {
+    contract_number: contract.contract_number || '',
+    contract_type: contract.contract_type,
+    work_time_model: contract.work_time_model,
+    is_marginal: contract.is_marginal,
+    weekly_hours: contract.weekly_hours || '',
+    start_date: contract.start_date?.slice(0, 10) || '',
+    end_date: contract.end_date?.slice(0, 10) || '',
+    status: contract.status,
+    notes: contract.notes || '',
+  }
+}
+
+function cancelEditContract() {
+  editingContractId.value = null
+}
+
+function handleEditContractFileChange(event) {
+  editContractFile.value = event.target.files[0] || null
+}
+
+async function saveEditContract(contract) {
+  savingContract.value = true
+  editContractError.value = ''
+  try {
+    const payload = { ...editContractForm.value }
+    if (!payload.end_date) delete payload.end_date
+    if (!payload.weekly_hours) delete payload.weekly_hours
+    if (editContractFile.value) payload.file = editContractFile.value
+
+    const updated = await updateContract(userId, contract.id, payload)
+    contracts.value = contracts.value.map((c) => (c.id === contract.id ? updated : c))
+    editingContractId.value = null
+  } catch (error) {
+    const fieldErrors = error.response?.data?.errors
+    editContractError.value = fieldErrors
+      ? Object.values(fieldErrors).flat().join(' ')
+      : error.response?.data?.message || 'Could not save these changes. Please try again.'
+  } finally {
+    savingContract.value = false
+  }
 }
 
 function handleContractDownload(contract) {
@@ -429,19 +502,34 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
               <option value="pending">Pending</option>
               <option value="valid">Valid</option>
               <option value="expired">Expired</option>
-              <option value="not_required">Not required</option>
+              <option value="not_required">Not required — e.g. Austrian/EU citizen</option>
               <option value="rejected">Rejected</option>
             </select>
           </label>
-          <label class="field">
+          <label class="field" :class="{ 'field--disabled': worker.work_authorization_status === 'not_required' }">
             <span class="field-label">Type</span>
-            <input v-model="worker.work_authorization_type" type="text" class="field-input" />
+            <input
+              v-model="worker.work_authorization_type"
+              type="text"
+              class="field-input"
+              :disabled="worker.work_authorization_status === 'not_required'"
+              placeholder="e.g. Rot-Weiß-Rot Karte Plus"
+            />
           </label>
-          <label class="field">
+          <label class="field" :class="{ 'field--disabled': worker.work_authorization_status === 'not_required' }">
             <span class="field-label">Expiry date</span>
-            <input v-model="worker.work_authorization_expiry_date" type="date" class="field-input" />
+            <input
+              v-model="worker.work_authorization_expiry_date"
+              type="date"
+              class="field-input"
+              :disabled="worker.work_authorization_status === 'not_required'"
+            />
           </label>
         </div>
+        <p v-if="worker.work_authorization_status === 'not_required'" class="not-required-note">
+          Type and expiry date are greyed out — they don't apply when no work authorization is
+          needed (e.g. an Austrian or other EU citizen).
+        </p>
 
         <button class="save-button" :disabled="savingWorker" @click="saveWorker">
           {{ savingWorker ? 'Saving…' : 'Save personal details' }}
@@ -654,29 +742,93 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in contracts" :key="c.id">
-              <td>{{ c.contract_type }}</td>
-              <td>{{ c.work_time_model }}</td>
-              <td>{{ c.is_marginal ? 'Yes' : '—' }}</td>
-              <td>{{ c.start_date }} → {{ c.is_permanent ? 'permanent' : c.end_date }}</td>
-              <td><span class="status-chip" :class="`status-chip--${c.status}`">{{ c.status }}</span></td>
-              <td>
-                <select :value="c.status" class="status-select" @change="setContractStatus(c, $event.target.value)">
-                  <option value="draft">draft</option>
-                  <option value="pending_signature">pending_signature</option>
-                  <option value="active">active</option>
-                  <option value="expired">expired</option>
-                  <option value="terminated">terminated</option>
-                  <option value="cancelled">cancelled</option>
-                </select>
-              </td>
-              <td>
-                <template v-if="c.has_file">
-                  <button class="text-action" @click="handleContractView(c)">View</button>
-                  <button class="text-action" @click="handleContractDownload(c)">Download</button>
-                </template>
-              </td>
-            </tr>
+            <template v-for="c in contracts" :key="c.id">
+              <tr>
+                <td>{{ c.contract_type }}</td>
+                <td>{{ c.work_time_model }}</td>
+                <td>{{ c.is_marginal ? 'Yes' : '—' }}</td>
+                <td>{{ c.start_date }} → {{ c.is_permanent ? 'permanent' : c.end_date }}</td>
+                <td><span class="status-chip" :class="`status-chip--${c.status}`">{{ c.status }}</span></td>
+                <td>
+                  <select :value="c.status" class="status-select" @change="setContractStatus(c, $event.target.value)">
+                    <option value="draft">draft</option>
+                    <option value="pending_signature">pending_signature</option>
+                    <option value="active">active</option>
+                    <option value="expired">expired</option>
+                    <option value="terminated">terminated</option>
+                    <option value="cancelled">cancelled</option>
+                  </select>
+                </td>
+                <td class="actions-cell">
+                  <template v-if="c.has_file">
+                    <button class="text-action" @click="handleContractView(c)">View</button>
+                    <button class="text-action" @click="handleContractDownload(c)">Download</button>
+                  </template>
+                  <button class="text-action" @click="editingContractId === c.id ? cancelEditContract() : startEditContract(c)">
+                    {{ editingContractId === c.id ? 'Cancel' : 'Modify' }}
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="editingContractId === c.id">
+                <td colspan="7">
+                  <div class="edit-form">
+                    <div class="field-grid">
+                      <label class="field">
+                        <span class="field-label">Contract number</span>
+                        <input v-model="editContractForm.contract_number" type="text" class="field-input" placeholder="optional" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Contract type</span>
+                        <select v-model="editContractForm.contract_type" class="field-input">
+                          <option value="employment_contract">Echter Dienstvertrag</option>
+                          <option value="free_service_contract">Freier Dienstvertrag</option>
+                          <option value="work_contract">Werkvertrag</option>
+                          <option value="assignment_notice">Überlassungsmitteilung</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Work time model</span>
+                        <select v-model="editContractForm.work_time_model" class="field-input">
+                          <option value="full_time">Vollzeit</option>
+                          <option value="part_time">Teilzeit</option>
+                          <option value="casual">Fallweise Beschäftigung</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Weekly hours</span>
+                        <input v-model="editContractForm.weekly_hours" type="number" min="0" step="0.5" class="field-input" placeholder="optional" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Start date</span>
+                        <input v-model="editContractForm.start_date" type="date" class="field-input" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">End date</span>
+                        <input v-model="editContractForm.end_date" type="date" class="field-input" placeholder="blank = permanent" />
+                      </label>
+                    </div>
+                    <label class="marginal-checkbox">
+                      <input type="checkbox" v-model="editContractForm.is_marginal" />
+                      Marginal employment (Geringfügig)
+                    </label>
+                    <label class="field notes-field">
+                      <span class="field-label">Notes</span>
+                      <textarea v-model="editContractForm.notes" class="field-input" rows="2"></textarea>
+                    </label>
+                    <label class="field notes-field">
+                      <span class="field-label">
+                        {{ c.has_file ? 'Replace document' : 'Attach document' }}
+                      </span>
+                      <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="field-input" @change="handleEditContractFileChange" />
+                    </label>
+                    <p v-if="editContractError" class="form-error" role="alert">{{ editContractError }}</p>
+                    <button class="save-button" :disabled="savingContract" @click="saveEditContract(c)">
+                      {{ savingContract ? 'Saving…' : 'Save changes' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
         <p v-else class="empty-note">No contracts yet.</p>
@@ -810,6 +962,23 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
 .field-input:focus-visible {
   border-color: var(--color-amber);
   box-shadow: 0 0 0 3px rgba(224, 151, 58, 0.25);
+}
+
+.field-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-paper);
+}
+
+.field--disabled .field-label {
+  opacity: 0.6;
+}
+
+.not-required-note {
+  font-size: 0.78rem;
+  color: var(--color-slate);
+  font-style: italic;
+  margin: -0.5rem 0 0.9rem;
 }
 
 .languages-field {
@@ -962,6 +1131,27 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
 
 .text-action:last-child {
   margin-right: 0;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.edit-form {
+  background: var(--color-paper);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.form-error {
+  color: var(--color-danger);
+  background: rgba(181, 83, 63, 0.08);
+  border: 1px solid rgba(181, 83, 63, 0.25);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  margin: 0.9rem 0;
 }
 
 .text-action--approve {

@@ -64,12 +64,14 @@ src/
   api/documents.js        fetchMyDocuments()/uploadDocument() — wraps the Employee module's document endpoints
   api/documentTypes.js     fetchDocumentTypes(category) — merges the fixed baseline with active company-added types
   api/customFields.js      fetchCustomFields(category)/fetchAnswers()/saveAnswers() — the company-configurable questions system
+  api/passwordReset.js     requestPasswordReset()/resetPassword() — built on raw axios calls like api/invitations.js, since there's no session at this point either
   api/contracts.js         fetchContracts()/signContract()/downloadContract() (blob download, since the endpoint needs the auth token)
   stores/auth.js          Pinia store: companyCode, token, user, login()/logout()/setSession(), persisted to localStorage
   router/index.js         route guard: redirects to /login when unauthenticated (accept-invite and login are public)
   components/layout/AppShell.vue  bottom tab bar wrapping every authenticated page
   components/AccordionItem.vue    reusable expand/collapse item — Profile's sections and their nested sub-sections are all built from this
   api/worker.js             fetchWorker()/updateWorker() — the fixed baseline personal/address/bank fields (partial updates)
+  api/shifts.js             fetchShifts()/expressInterest()/withdrawInterest()/fetchMyInterests()/fetchMyAssignments()/confirmAssignment()/requestCancellation() — everything the Jobs tab needs
   api/authProfile.js        updateMe() — self-service name/phone edit (these live on User/Authentication, not Worker/Employee)
   constants/countries.js    country list for the Nationality/Country dropdowns
   constants/languages.js    language list for the Native language dropdown
@@ -80,10 +82,12 @@ src/
   components/CustomFieldSection.vue  fetch+save wrapper around CustomFieldForm for one category (personal_info or skill)
   components/DocumentUploadSection.vue  upload form + existing-documents list for one document category (personal or work)
   components/ContractsSection.vue    contract history, sign, and file download
-  views/AcceptInviteView.vue   the invite-completion screen
-  views/LoginView.vue          returning-worker sign in
+  views/AcceptInviteView.vue   the invite-completion screen — just a password now, not name/phone too (see PersonalDetailsForm.vue, which sets those for real later and is what actually replaces the account's placeholder name)
+  views/LoginView.vue          returning-worker sign in — now with a "Forgot your password?" link
+  views/ForgotPasswordView.vue   company code + email → sends a reset link (self-service, works even if the worker is currently inactive — see the Authentication module's README)
+  views/ResetPasswordView.vue    the link that email opens — token/email/company all read from the URL query, sets a new password
   views/HomeView.vue           the Home tab
-  views/JobsView.vue           the Jobs tab
+  views/JobsView.vue           the Jobs tab — My shifts (interests + assignments merged, sorted by date) and Available shifts (browsable, filtered client-side to exclude anything already committed to). Every card is tappable, opening a full-detail bottom sheet (everything ShiftResource carries — full description, exact location, contact names/phones, rate — not just the summary shown on the card itself) with the same express-interest/withdraw/confirm/request-cancellation actions available there too. An assignment with a change_note (a dispatcher edited the time/location after this worker already confirmed) gets a highlighted amber border on its card plus a plain-language "what changed" banner, both on the card and in the detail sheet — so re-confirming isn't a mystery
   views/CalendarView.vue       the Calendar tab
   views/ChatView.vue           the Chat tab
   views/ProfileView.vue        the Profile tab — ID card + accordion of sections

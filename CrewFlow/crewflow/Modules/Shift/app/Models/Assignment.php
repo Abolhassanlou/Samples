@@ -30,6 +30,7 @@ class Assignment extends Model
         'transport_amount',
         'status',
         'confirmed_at',
+        'change_note',
     ];
 
     protected function casts(): array

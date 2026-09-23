@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoginView from '@/views/LoginView.vue'
+import ForgotPasswordView from '@/views/ForgotPasswordView.vue'
+import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import UsersView from '@/views/UsersView.vue'
 import RolesView from '@/views/RolesView.vue'
@@ -9,6 +11,7 @@ import CreateWorkerView from '@/views/CreateWorkerView.vue'
 import InviteWorkerView from '@/views/InviteWorkerView.vue'
 import WorkerDetailView from '@/views/WorkerDetailView.vue'
 import CustomFieldsView from '@/views/CustomFieldsView.vue'
+import ShiftsView from '@/views/ShiftsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -17,6 +20,18 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { public: true },
+    },
+    {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: ForgotPasswordView,
+      meta: { public: true },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPasswordView,
       meta: { public: true },
     },
     {
@@ -58,6 +73,11 @@ const router = createRouter({
       path: '/custom-fields',
       name: 'custom-fields',
       component: CustomFieldsView,
+    },
+    {
+      path: '/shifts',
+      name: 'shifts',
+      component: ShiftsView,
     },
   ],
 })

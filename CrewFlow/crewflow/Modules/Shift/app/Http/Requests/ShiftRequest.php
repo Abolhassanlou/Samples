@@ -43,6 +43,12 @@ class ShiftRequest extends FormRequest
             'ends_at' => [$isCreating ? 'required' : 'sometimes', 'date', 'after:starts_at'],
 
             'qualification_policy' => ['sometimes', 'in:strict,override,warn'],
+
+            // open | partially_filled | filled | in_progress | completed
+            // | cancelled — "Disable" on the admin page just sets this
+            // to "cancelled" via this same update endpoint, rather than
+            // needing a separate one.
+            'status' => ['sometimes', 'in:open,partially_filled,filled,in_progress,completed,cancelled'],
         ];
     }
 }

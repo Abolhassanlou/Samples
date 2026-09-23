@@ -31,9 +31,37 @@ class WorkerInvitationController extends Controller
      * Dispatcher can invite a worker, matching how both can already see
      * and manage shifts. Full profile/contract editing afterward still
      * requires users.manage (see WorkerController etc.).
+     *
+     * Before the normal "email must be unique" check, this looks for the
+     * specific case of a worker who LEFT (CompanyWorker.status is
+     * `inactive` or `blocked`) coming back under the same email — rather
+     * than a flat validation error, it returns a distinct 409 with
+     * `errors.reactivatable: true` so the frontend can offer "Reactivate
+     * them instead?" (see reactivate() below) rather than a dead end. An
+     * email belonging to a currently active/pending/invited worker, or
+     * to a non-worker account (e.g. another admin), still gets the plain
+     * "already taken" validation error — there's nothing to reactivate.
      */
     public function store(Request $request)
     {
+        $email = $request->input('email');
+
+        $existingUser = User::where('email', $email)->first();
+        if ($existingUser) {
+            $existingWorker = Worker::where('user_id', $existingUser->id)->first();
+            $existingCompanyWorker = $existingWorker
+                ? CompanyWorker::where('worker_id', $existingWorker->id)->first()
+                : null;
+
+            if ($existingCompanyWorker && in_array($existingCompanyWorker->status, ['inactive', 'blocked'])) {
+                return $this->error(
+                    "A worker with this email already exists but is currently {$existingCompanyWorker->status}. Reactivate them instead of creating a new invitation?",
+                    409,
+                    ['reactivatable' => true, 'user_id' => $existingUser->id, 'current_status' => $existingCompanyWorker->status]
+                );
+            }
+        }
+
         $data = $request->validate([
             'email' => ['required', 'email', 'unique:users,email'],
         ]);
@@ -49,11 +77,61 @@ class WorkerInvitationController extends Controller
 
         $worker = Worker::create(['user_id' => $user->id]);
 
-        $token = Str::random(64);
-
         $companyWorker = CompanyWorker::create([
             'worker_id' => $worker->id,
             'status' => 'invited',
+        ]);
+
+        $this->sendInvitation($companyWorker, $user);
+
+        return $this->success([
+            'user_id' => $user->id,
+            'company_worker_id' => $companyWorker->id,
+        ], 'Invitation sent', 201);
+    }
+
+    /**
+     * The other side of the 409 in store() above — an admin/dispatcher
+     * confirms they actually want to bring this specific worker back,
+     * rather than store() silently reactivating on a bare retry (that
+     * would let a plain "invite" accidentally resurrect someone a
+     * different admin deliberately deactivated). Everything about the
+     * worker — Worker, all their documents, their full contract history
+     * — is untouched; only CompanyWorker's status/invitation fields
+     * reset, exactly like a fresh invite. Worker.status itself isn't
+     * touched here either — accept() (unchanged) sets it back to
+     * `pending` once they actually complete the new invitation, same as
+     * any other accept.
+     */
+    public function reactivate(Request $request, User $user)
+    {
+        $worker = Worker::where('user_id', $user->id)->first();
+        abort_unless($worker, 404);
+
+        $companyWorker = CompanyWorker::where('worker_id', $worker->id)->first();
+        abort_unless($companyWorker, 404);
+        abort_unless(in_array($companyWorker->status, ['inactive', 'blocked']), 422, 'This worker is not in a reactivatable state.');
+
+        $companyWorker->update(['status' => 'invited']);
+
+        $this->sendInvitation($companyWorker, $user);
+
+        return $this->success([
+            'user_id' => $user->id,
+            'company_worker_id' => $companyWorker->id,
+        ], 'Reactivation invitation sent');
+    }
+
+    /**
+     * Shared by store() (a brand new invite) and reactivate() (a
+     * returning worker) — generates a fresh token, sets its expiry, and
+     * sends the same email either way.
+     */
+    private function sendInvitation(CompanyWorker $companyWorker, User $user): void
+    {
+        $token = Str::random(64);
+
+        $companyWorker->update([
             'invitation_token' => $token,
             'invitation_expires_at' => now()->addDays(7),
         ]);
@@ -65,11 +143,6 @@ class WorkerInvitationController extends Controller
         Mail::to($user->email)->send(
             new WorkerInvitationMail($inviteUrl, tenant('name') ?? 'your company', tenant('company_code'))
         );
-
-        return $this->success([
-            'user_id' => $user->id,
-            'company_worker_id' => $companyWorker->id,
-        ], 'Invitation sent', 201);
     }
 
     /**
@@ -93,11 +166,18 @@ class WorkerInvitationController extends Controller
     }
 
     /**
-     * Public (no auth). The worker sets their real name/phone/password;
-     * Worker and CompanyWorker both move from their initial state to
-     * "pending" (an admin still needs to actually approve/contract them
-     * — see the Employee module's README for the full status lifecycle).
-     * Returns a fresh Sanctum token so they're immediately signed in.
+     * Public (no auth). Deliberately asks for only a password now —
+     * name/phone (and everything else about the worker) is filled in
+     * later from their own Profile once they're actually in the app,
+     * rather than duplicating that entry here too. `name` keeps its
+     * email-prefix placeholder (set in store() above) until the worker
+     * fills in Personal details, which updates it for real (see
+     * PersonalDetailsForm.vue in worker-portal) — `phone` stays empty
+     * the same way. Worker and CompanyWorker both move from their
+     * initial state to "pending" (an admin still needs to actually
+     * approve/contract them — see the Employee module's README for the
+     * full status lifecycle). Returns a fresh Sanctum token so they're
+     * immediately signed in.
      */
     public function accept(Request $request, string $token)
     {
@@ -108,19 +188,13 @@ class WorkerInvitationController extends Controller
         }
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         $worker = $companyWorker->worker;
         $user = $worker->user;
 
-        $user->update([
-            'name' => $data['name'],
-            'phone' => $data['phone'],
-            'password' => Hash::make($data['password']),
-        ]);
+        $user->update(['password' => Hash::make($data['password'])]);
 
         $worker->update(['status' => 'pending']);
 

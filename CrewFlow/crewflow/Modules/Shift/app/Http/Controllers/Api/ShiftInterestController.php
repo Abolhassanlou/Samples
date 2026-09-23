@@ -33,6 +33,23 @@ class ShiftInterestController extends Controller
     }
 
     /**
+     * A worker's own interests across every shift — pending or
+     * waitlisted, so the Jobs tab can show "you're waiting on these"
+     * alongside their confirmed assignments. Self-scoped, no permission
+     * required.
+     */
+    public function mine(Request $request)
+    {
+        $interests = ShiftInterest::where('worker_id', $request->user()->id)
+            ->whereIn('status', ['pending', 'waitlisted'])
+            ->with(['shift', 'position.role'])
+            ->orderBy('expressed_at', 'desc')
+            ->get();
+
+        return $this->success(ShiftInterestResource::collection($interests));
+    }
+
+    /**
      * A worker expresses interest — optionally in a specific role, if the
      * shift has positions. No permission required beyond being an
      * authenticated company user. If the shift/position is already full,

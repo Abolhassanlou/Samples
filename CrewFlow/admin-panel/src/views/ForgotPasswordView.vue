@@ -1,25 +1,24 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter, useRoute, RouterLink } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-
-const router = useRouter()
-const route = useRoute()
-const auth = useAuthStore()
+import { RouterLink } from 'vue-router'
+import { requestPasswordReset } from '@/api/passwordReset'
 
 const companyCode = ref('')
 const email = ref('')
-const password = ref('')
+const submitting = ref(false)
+const submitted = ref(false)
+const errorMessage = ref('')
 
 async function handleSubmit() {
-  const success = await auth.login({
-    companyCode: companyCode.value.trim().toLowerCase(),
-    email: email.value.trim(),
-    password: password.value,
-  })
-
-  if (success) {
-    router.push(route.query.redirect || '/')
+  errorMessage.value = ''
+  submitting.value = true
+  try {
+    await requestPasswordReset(companyCode.value.trim().toLowerCase(), email.value.trim())
+    submitted.value = true
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Something went wrong. Please try again.'
+  } finally {
+    submitting.value = false
   }
 }
 </script>
@@ -28,33 +27,38 @@ async function handleSubmit() {
   <div class="screen">
     <div class="card">
       <div class="brand-mark">CrewFlow</div>
-      <h1 class="title">Sign in</h1>
-      <p class="lead">Enter your company's workspace to continue.</p>
+      <h1 class="title">Reset your password</h1>
 
-      <form class="form" @submit.prevent="handleSubmit">
-        <label class="field">
-          <span class="field-label">Company code</span>
-          <input v-model="companyCode" type="text" class="field-input field-input--mono" placeholder="acme2024" required />
-        </label>
+      <template v-if="submitted">
+        <p class="lead">
+          If an account with that email exists, a reset link has been sent — check the inbox.
+        </p>
+        <RouterLink to="/login" class="back-link">Back to sign in</RouterLink>
+      </template>
 
-        <label class="field">
-          <span class="field-label">Email</span>
-          <input v-model="email" type="email" class="field-input" required />
-        </label>
+      <template v-else>
+        <p class="lead">Enter the company code and email — a reset link will be sent.</p>
 
-        <label class="field">
-          <span class="field-label">Password</span>
-          <input v-model="password" type="password" class="field-input" required />
-        </label>
+        <form class="form" @submit.prevent="handleSubmit">
+          <label class="field">
+            <span class="field-label">Company code</span>
+            <input v-model="companyCode" type="text" class="field-input field-input--mono" placeholder="acme2024" required />
+          </label>
 
-        <p v-if="auth.loginError" class="error-banner" role="alert">{{ auth.loginError }}</p>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input v-model="email" type="email" class="field-input" required />
+          </label>
 
-        <button type="submit" class="submit-button" :disabled="auth.isLoggingIn">
-          {{ auth.isLoggingIn ? 'Signing in…' : 'Sign in' }}
-        </button>
-      </form>
+          <p v-if="errorMessage" class="error-banner" role="alert">{{ errorMessage }}</p>
 
-      <RouterLink to="/forgot-password" class="forgot-link">Forgot your password?</RouterLink>
+          <button type="submit" class="submit-button" :disabled="submitting">
+            {{ submitting ? 'Sending…' : 'Send reset link' }}
+          </button>
+        </form>
+
+        <RouterLink to="/login" class="back-link">Back to sign in</RouterLink>
+      </template>
     </div>
   </div>
 </template>
@@ -95,6 +99,7 @@ async function handleSubmit() {
   font-size: 0.9rem;
   color: var(--color-slate);
   margin: 0 0 1.5rem;
+  line-height: 1.5;
 }
 
 .form {
@@ -165,7 +170,7 @@ async function handleSubmit() {
   cursor: not-allowed;
 }
 
-.forgot-link {
+.back-link {
   display: block;
   text-align: center;
   margin-top: 1.25rem;

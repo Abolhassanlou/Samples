@@ -33,6 +33,15 @@ export function inviteWorker(email) {
 }
 
 /**
+ * The explicit confirmation after a 409 { reactivatable: true } from
+ * inviteWorker() above — resets the existing worker's invitation and
+ * resends the email, keeping everything else about them untouched.
+ */
+export function reactivateWorker(userId) {
+  return client.post(`workers/${userId}/reactivate`).then((r) => r.data.data)
+}
+
+/**
  * Registers the new worker's account via the same public endpoint a
  * worker would use to sign themselves up. Issues that worker a token
  * too (unused here — an admin filling out this form isn't "logging in
@@ -79,11 +88,48 @@ export function fetchContracts(userId) {
   return client.get(`users/${userId}/contracts`).then((r) => r.data.data)
 }
 
+/**
+ * Builds multipart/form-data only when a file is actually attached —
+ * otherwise a plain JSON payload, since most edits (e.g. just changing
+ * status) don't need one.
+ */
+function toContractFormData(payload) {
+  const formData = new FormData()
+  for (const [key, value] of Object.entries(payload)) {
+    if (key === 'file') continue
+    if (value === null || value === undefined || value === '') continue
+    formData.append(key, typeof value === 'boolean' ? (value ? '1' : '0') : value)
+  }
+  if (payload.file) formData.append('file', payload.file)
+  return formData
+}
+
 export function createContract(userId, payload) {
+  if (payload.file) {
+    return client
+      .post(`users/${userId}/contracts`, toContractFormData(payload), {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data.data)
+  }
   return client.post(`users/${userId}/contracts`, payload).then((r) => r.data.data)
 }
 
+/**
+ * PUT doesn't natively support multipart/form-data in most HTTP
+ * clients/browsers — when a file is attached, this uses Laravel's
+ * standard method-spoofing (POST with _method=PUT) instead.
+ */
 export function updateContract(userId, contractId, payload) {
+  if (payload.file) {
+    const formData = toContractFormData(payload)
+    formData.append('_method', 'PUT')
+    return client
+      .post(`users/${userId}/contracts/${contractId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data.data)
+  }
   return client.put(`users/${userId}/contracts/${contractId}`, payload).then((r) => r.data.data)
 }
 

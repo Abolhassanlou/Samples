@@ -26,6 +26,16 @@ class ShiftResource extends JsonResource
             'internal_contact_phone' => $this->internal_contact_phone,
             'quantity_needed' => $this->quantity_needed,
             'confirmed_count' => $this->confirmedAssignmentsCount(),
+            // Only populated when eager-loaded (see ShiftController) —
+            // avoids an N+1 query on every shift in a list when nobody
+            // actually needs the names, just the count above.
+            'confirmed_workers' => $this->whenLoaded(
+                'confirmedAssignments',
+                fn () => $this->confirmedAssignments->map(fn ($a) => [
+                    'worker_id' => $a->worker_id,
+                    'name' => $a->worker?->name,
+                ])
+            ),
             'positions' => ShiftPositionResource::collection($this->whenLoaded('positions')),
             'rate_type' => $this->rate_type,
             'hourly_rate' => $this->hourly_rate,

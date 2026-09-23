@@ -20,6 +20,9 @@ class ShiftInterestResource extends JsonResource
             'status' => $this->status,
             'expressed_at' => $this->expressed_at,
             'withdrawn_at' => $this->withdrawn_at,
+            // Full shift details — see the identical field on
+            // AssignmentResource for the reasoning.
+            'shift' => $this->whenLoaded('shift', fn () => new ShiftResource($this->shift)),
             // Only meaningful (and only computed) when the shift itself
             // is eager-loaded and its policy is "warn" — see
             // ShiftVisibility::workerQualifies(). Never true for

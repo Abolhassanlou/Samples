@@ -53,12 +53,18 @@ async function handleSave() {
   try {
     const { phone, ...workerFields } = form.value
 
+    // User.name still carries the invite's email-prefix placeholder
+    // (see the Employee module's README, "Why accept only asks for a
+    // password") until it's set for real here — derived from the
+    // legal-name fields Worker actually owns, not asked for twice.
+    const name = `${workerFields.first_name} ${workerFields.last_name}`.trim()
+
     await Promise.all([
       updateWorker(auth.user.id, workerFields),
-      updateMe({ phone }),
+      updateMe({ phone, ...(name ? { name } : {}) }),
     ])
 
-    auth.updateUser({ phone })
+    auth.updateUser({ phone, ...(name ? { name } : {}) })
 
     savedNote.value = true
     setTimeout(() => (savedNote.value = false), 2000)

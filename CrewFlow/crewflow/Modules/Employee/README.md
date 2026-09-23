@@ -110,13 +110,19 @@ An admin/dispatcher only ever types an **email address** (`POST /api/workers/inv
 
 1. `WorkerInvitationController::store()` creates the `User` (placeholder name = the email's local part, an unusable random password), an empty `Worker`, and a `CompanyWorker` with `status: invited` and a random `invitation_token` (expires in 7 days), then emails a link built from `config('employee.worker_portal_url')` + `?token=...&company=...`.
 2. The worker opens that link — `GET /api/invitations/{token}` (public, no auth) lets a frontend show "You've been invited to join {company}" before they commit to anything.
-3. `POST /api/invitations/{token}/accept` (public, no auth) — the worker submits their real name, phone, and password. Sets those on their `User`, flips both `Worker.status` and `CompanyWorker.status` to `pending` (an admin still needs to actually set up their contract — see the status lifecycle above), clears the invitation token, and returns a fresh Sanctum token so they're immediately signed in.
+3. `POST /api/invitations/{token}/accept` (public, no auth) — the worker sets only a **password**. Flips both `Worker.status` and `CompanyWorker.status` to `pending` (an admin still needs to actually set up their contract — see the status lifecycle above), clears the invitation token, and returns a fresh Sanctum token so they're immediately signed in.
 
-**The worker-facing portal that link actually opens doesn't exist yet.** `worker_portal_url` is deliberately configurable (`WORKER_PORTAL_URL` env var) specifically so the invite/email mechanism could be built and tested end-to-end (e.g. with `MAIL_MAILER=log`, checking `storage/logs/laravel.log`) before that portal exists. Update the config once it does.
+**Why accept only asks for a password**: name and phone used to be collected here too, duplicating what the worker would fill in again moments later on their own Profile (`PersonalDetailsForm.vue` in worker-portal — `first_name`/`last_name` on `Worker`, `phone` on `User` via `PUT /api/auth/me`). `User.name` keeps its email-prefix placeholder from `store()` until they actually fill in Personal details — at that point, `PersonalDetailsForm.vue` updates `User.name` too (derived from first/last name), not just `Worker.first_name`/`last_name`, so the placeholder gets replaced with their real name for good rather than lingering forever.
 
-**Why the link includes `company=` alongside `token=`**: every API call in this project needs to know which tenant's subdomain to hit (`{company-code}.crewflow.localhost/api/...` — see `Modules/Tenancy/README.md` and the admin panel's `buildBaseUrl()`). A bare token alone wouldn't tell a future worker-portal frontend which company's API to call before it's even authenticated — so the company code rides along in the same link, and is also returned from `GET /api/invitations/{token}` as a cross-check.
+**Why the link includes `company=` alongside `token=`**: every API call in this project needs to know which tenant's subdomain to hit (`{company-code}.crewflow.localhost/api/...` — see `Modules/Tenancy/README.md` and the admin panel's `buildBaseUrl()`). A bare token alone wouldn't tell the worker-portal frontend which company's API to call before it's even authenticated — so the company code rides along in the same link, and is also returned from `GET /api/invitations/{token}` as a cross-check.
 
-The older "admin types everything by hand" flow (the frontend's `CreateWorkerView`, hitting `POST /api/auth/register` directly) still works — useful for e.g. importing existing employee data — but is no longer the primary path a new worker is expected to go through.
+The older "admin types everything by hand" flow (the admin panel's `CreateWorkerView`, hitting `POST /api/auth/register` directly) still works — useful for e.g. importing existing employee data — but is no longer the primary path a new worker is expected to go through.
+
+## Reactivating a worker who left
+
+Inviting the same email twice normally fails outright (`email` is `unique:users`) — there was no way to bring back a worker whose `CompanyWorker.status` had been set to `inactive`/`blocked` without either a raw "already taken" error or losing their entire history to a workaround. Now `WorkerInvitationController::store()` checks for exactly this case *before* running that validation: if the email belongs to a `User` with a `Worker`/`CompanyWorker` whose status is `inactive` or `blocked`, it returns `409` with `errors: { reactivatable: true, user_id, current_status }` instead of a plain `422` — a distinct, structured response the frontend can detect and offer "Reactivate them instead?" on, rather than a dead end (see `InviteWorkerView.vue` in the admin panel).
+
+`POST /api/workers/{user}/reactivate` is the explicit confirmation step — deliberately separate from `store()` auto-reactivating on a bare retry, since that would let a plain re-invite accidentally resurrect someone a different admin deliberately deactivated. It resets `CompanyWorker.status` to `invited` and resends the invitation email (both `store()` and `reactivate()` share this through a private `sendInvitation()` helper) — that's *all* it touches. `Worker` itself, every document, and the full contract history are completely untouched, so a returning worker picks up right where they left off once they set a new password. `Worker.status` isn't touched by `reactivate()` either — `accept()` (entirely unchanged) sets it back to `pending` once they actually complete the new invitation, exactly the same code path as any other accept, reactivation or not.
 
 ## Custom fields — why companies need configurable questions, not hardcoded columns
 
@@ -199,9 +205,10 @@ POST   /api/users/{user}/custom-field-answers   { answers: [{ custom_field_defin
 
 GET    /api/workers                             ?search=&qualification_id=&branch_id=&contract_type=&work_time_model=&night_shift=1&eligible=1&day_of_week=&time=   [shifts.dispatch]
 
-POST   /api/workers/invite                      { email }                                    [shifts.dispatch]
+POST   /api/workers/invite                      { email }   returns 409 with errors: { reactivatable: true, user_id, current_status } instead of a plain validation error when the email belongs to an inactive/blocked worker — see "Reactivating a worker who left" below   [shifts.dispatch]
+POST   /api/workers/{user}/reactivate                       explicit confirmation after that 409 — resets CompanyWorker to invited and resends the email; everything else about the worker (Worker, documents, contract history) is untouched   [shifts.dispatch]
 GET    /api/invitations/{token}                 (public)
-POST   /api/invitations/{token}/accept          { name, phone, password, password_confirmation }   (public)
+POST   /api/invitations/{token}/accept          { password, password_confirmation }   (public — name/phone deliberately not asked here anymore, filled in later from the worker's own Profile instead; see "Why accept only asks for a password" below)
 ```
 
 ## The `/api/workers` directory (dispatcher-facing, not the same thing as `/api/users`)

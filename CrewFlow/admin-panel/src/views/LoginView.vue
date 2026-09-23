@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -91,6 +91,8 @@ async function handleSubmit() {
         <button type="submit" class="submit-button" :disabled="auth.isLoggingIn">
           {{ auth.isLoggingIn ? 'Signing in…' : 'Sign in' }}
         </button>
+
+        <RouterLink to="/forgot-password" class="forgot-link">Forgot your password?</RouterLink>
       </form>
     </main>
   </div>
@@ -271,5 +273,15 @@ async function handleSubmit() {
 .submit-button:focus-visible {
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
+}
+
+.forgot-link {
+  display: block;
+  text-align: center;
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--color-amber-dark);
+  font-weight: 600;
+  text-decoration: none;
 }
 </style>

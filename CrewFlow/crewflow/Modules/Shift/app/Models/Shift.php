@@ -91,6 +91,17 @@ class Shift extends Model
         return $this->hasMany(Assignment::class);
     }
 
+    /**
+     * Just the confirmed ones — eager-loadable with .worker, unlike
+     * confirmedAssignmentsCount() below (a plain query, not a relation).
+     * Used so the admin Shifts list can show who's actually confirmed
+     * for each shift without a click-through per row.
+     */
+    public function confirmedAssignments(): HasMany
+    {
+        return $this->assignments()->where('status', 'confirmed');
+    }
+
     public function positions(): HasMany
     {
         return $this->hasMany(ShiftPosition::class);
