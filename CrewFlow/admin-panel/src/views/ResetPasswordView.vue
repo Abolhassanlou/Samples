@@ -1,40 +1,22 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { fetchInvitation, acceptInvitation } from '@/api/invitations'
+import { resetPassword } from '@/api/passwordReset'
 
 const route = useRoute()
 const router = useRouter()
-const auth = useAuthStore()
 
 const companyCode = route.query.company
 const token = route.query.token
-
-const loading = ref(true)
-const loadError = ref('')
-const invitation = ref(null)
+const email = route.query.email
 
 const password = ref('')
 const passwordConfirm = ref('')
 const submitting = ref(false)
 const submitError = ref('')
+const done = ref(false)
 
-onMounted(async () => {
-  if (!companyCode || !token) {
-    loadError.value = 'This invitation link is missing information and cannot be used.'
-    loading.value = false
-    return
-  }
-
-  try {
-    invitation.value = await fetchInvitation(companyCode, token)
-  } catch {
-    loadError.value = 'This invitation link is invalid or has expired. Ask your employer to send a new one.'
-  } finally {
-    loading.value = false
-  }
-})
+const missingParams = !companyCode || !token || !email
 
 async function handleSubmit() {
   submitError.value = ''
@@ -46,16 +28,11 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    // Deliberately just a password — name/phone get filled in later from
-    // Profile → Personal details, not duplicated here (see the Employee
-    // module's README, "Why accept only asks for a password").
-    const result = await acceptInvitation(companyCode, token, { password: password.value })
-
-    auth.setSession({ companyCode, token: result.token, user: result.user })
-    router.push('/')
+    await resetPassword(companyCode, { email, token, password: password.value })
+    done.value = true
   } catch (error) {
     submitError.value =
-      error.response?.data?.message || 'Something went wrong. Please check the details and try again.'
+      error.response?.data?.message || 'This reset link is invalid or has expired. Request a new one.'
   } finally {
     submitting.value = false
   }
@@ -67,33 +44,36 @@ async function handleSubmit() {
     <div class="card">
       <div class="brand-mark">CrewFlow</div>
 
-      <p v-if="loading" class="loading-note">Checking your invitation…</p>
+      <p v-if="missingParams" class="error-banner" role="alert">
+        This reset link is missing information and cannot be used. Request a new one from the
+        sign-in page.
+      </p>
 
-      <p v-else-if="loadError" class="error-banner" role="alert">{{ loadError }}</p>
+      <template v-else-if="done">
+        <h1 class="title">Password reset</h1>
+        <p class="lead">You can sign in with your new password now.</p>
+        <button class="submit-button" @click="router.push('/login')">Go to sign in</button>
+      </template>
 
       <template v-else>
-        <h1 class="title">You're invited</h1>
-        <p class="lead">
-          Join <strong>{{ invitation.company_name }}</strong> as
-          <strong>{{ invitation.email }}</strong
-          >. Just set a password to get started — you'll fill in your details afterward.
-        </p>
+        <h1 class="title">Set a new password</h1>
+        <p class="lead">for <strong>{{ email }}</strong></p>
 
         <form class="form" @submit.prevent="handleSubmit">
           <label class="field">
-            <span class="field-label">Password</span>
+            <span class="field-label">New password</span>
             <input v-model="password" type="password" class="field-input" minlength="8" required />
           </label>
 
           <label class="field">
-            <span class="field-label">Confirm password</span>
+            <span class="field-label">Confirm new password</span>
             <input v-model="passwordConfirm" type="password" class="field-input" minlength="8" required />
           </label>
 
           <p v-if="submitError" class="error-banner" role="alert">{{ submitError }}</p>
 
           <button type="submit" class="submit-button" :disabled="submitting">
-            {{ submitting ? 'Setting up…' : 'Set up my account' }}
+            {{ submitting ? 'Saving…' : 'Set new password' }}
           </button>
         </form>
       </template>
@@ -113,7 +93,7 @@ async function handleSubmit() {
 
 .card {
   width: 100%;
-  max-width: 400px;
+  max-width: 380px;
   background: var(--color-paper);
   border-radius: 14px;
   padding: 2rem 1.75rem;
@@ -126,27 +106,17 @@ async function handleSubmit() {
   margin-bottom: 1.5rem;
 }
 
-.loading-note {
-  color: var(--color-slate);
-  font-size: 0.9rem;
-}
-
 .title {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.4rem;
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.4rem;
 }
 
 .lead {
   font-size: 0.9rem;
   color: var(--color-slate);
-  line-height: 1.5;
   margin: 0 0 1.5rem;
-}
-
-.lead strong {
-  color: var(--color-ink);
 }
 
 .form {
@@ -194,6 +164,7 @@ async function handleSubmit() {
 }
 
 .submit-button {
+  width: 100%;
   padding: 0.8rem;
   font-size: 0.95rem;
   font-weight: 600;

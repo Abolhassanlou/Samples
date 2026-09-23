@@ -28,6 +28,25 @@ class AssignmentController extends Controller
     }
 
     /**
+     * A worker's own assignments across every shift — what the Jobs tab
+     * uses to show "your upcoming work" alongside the browsable list of
+     * open shifts. Self-scoped, no permission required beyond being
+     * authenticated (this is never someone else's data). Shift is eager-
+     * loaded (with its own event) since the frontend needs title/dates/
+     * location to actually display anything useful, not just an id.
+     */
+    public function mine(Request $request)
+    {
+        $assignments = Assignment::where('worker_id', $request->user()->id)
+            ->whereIn('status', ['pending_worker_confirmation', 'confirmed'])
+            ->with(['shift', 'position.role'])
+            ->orderBy('assigned_at', 'desc')
+            ->get();
+
+        return $this->success(AssignmentResource::collection($assignments));
+    }
+
+    /**
      * This is the endpoint that answers "can a Company Admin/Dispatcher
      * assign work to a worker" — yes: requires shifts.dispatch (route-level).
      * A worker doesn't need to have expressed interest first — a dispatcher
@@ -146,7 +165,11 @@ class AssignmentController extends Controller
             return $this->error('This assignment is not awaiting confirmation.', 422);
         }
 
-        $assignment->update(['status' => 'confirmed', 'confirmed_at' => now()]);
+        // change_note (if set by a shift edit that required
+        // re-confirmation — see ShiftController::update()) is cleared
+        // here too, so it doesn't linger and show stale "what changed"
+        // info once the worker has actually looked and re-confirmed.
+        $assignment->update(['status' => 'confirmed', 'confirmed_at' => now(), 'change_note' => null]);
 
         $shift = $assignment->shift;
         if ($shift->isFull()) {
@@ -154,5 +177,31 @@ class AssignmentController extends Controller
         }
 
         return $this->success(new AssignmentResource($assignment), 'Assignment confirmed');
+    }
+
+    /**
+     * A dispatcher/admin removing an assignment directly — independent
+     * of the worker-initiated cancellation-request flow (see
+     * CancellationRequestController), which needs separate approval.
+     * This is immediate, no approval step, since the dispatcher is the
+     * one doing it. Soft — sets status to "cancelled" rather than a
+     * real row delete, so it stays visible in history (matches the
+     * "cancelled" value Assignment.status already supports). If the
+     * shift had been marked "filled", it reopens.
+     */
+    public function destroy(Request $request, Assignment $assignment)
+    {
+        if (! in_array($assignment->status, ['pending_worker_confirmation', 'confirmed'])) {
+            return $this->error('This assignment is not currently active.', 422);
+        }
+
+        $assignment->update(['status' => 'cancelled']);
+
+        $shift = $assignment->shift;
+        if ($shift->status === 'filled') {
+            $shift->update(['status' => 'partially_filled']);
+        }
+
+        return $this->success(null, 'Assignment cancelled');
     }
 }

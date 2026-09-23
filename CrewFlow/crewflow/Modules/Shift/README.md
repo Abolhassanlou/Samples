@@ -45,6 +45,16 @@ This changes what `ShiftVisibility` actually checks once a Shift has positions: 
 
 A worker missing any of these gets a clear 422, not a silent failure. This is a hard gate at assignment time — separate from `ShiftVisibility` (which only controls whether a worker *sees* a shift at all).
 
+## Re-confirmation on shift changes
+
+A worker who already confirmed an assignment did so based on a specific time and place — if a dispatcher then edits `starts_at`, `ends_at`, or `location_address` on that shift (`PUT /api/shifts/{shift}`), every `confirmed` assignment on it resets to `pending_worker_confirmation` (`confirmed_at` cleared too), so the worker has to look at the new details and confirm again rather than silently staying "confirmed" for a shift that's moved under them. If the shift had been `filled`, it reverts to `partially_filled` accordingly.
+
+Only timing/location trigger this — editing the description, contact names, rate, or qualification policy doesn't, since none of those affect whether a worker who already said yes can actually still make it. `pending_worker_confirmation` assignments (not yet confirmed at all) and `pending`/`waitlisted` interests aren't touched either way — they haven't committed to anything yet, so they just see the updated details whenever they act.
+
+Date comparison uses `Carbon::parse(...)->equalTo(...)`, not a raw string comparison — the incoming request value and the stored Carbon value's string form don't match byte-for-byte even for the identical moment (different formats), so a naive string check would falsely trigger this reset on every edit, not just ones that actually change the time.
+
+**`Assignment.change_note`**: set alongside the reset, to a plain-language summary of exactly what changed (e.g. `"Time changed from Mon, Sep 15, 8:00 PM–11:00 PM to Mon, Sep 15, 9:00 PM–12:00 AM."`) — built from the shift's OLD values (captured before `$shift->update()` overwrites them) and its new ones. Without this, a worker asked to re-confirm would have no way to tell what actually changed short of comparing the new details against memory. Cleared back to `null` once the worker re-confirms (`AssignmentController::confirm()`), so it never shows stale info. Exposed on `AssignmentResource` — the worker-portal Jobs tab surfaces it prominently on the affected card/detail view.
+
 ## `Event.requires_contract` — auto-creating a per-placement Überlassungsmitteilung
 
 When an Event has `requires_contract: true`, successfully assigning a worker to any Shift under it automatically creates (find-or-create — never duplicated per worker per event) an Employee-module `EmploymentContract` with `contract_type: assignment_notice` (Überlassungsmitteilung — Austrian staff-leasing notification law), `event_id` set, and `status: pending_signature`. See `AssignmentController::ensureAssignmentNotice()`.
@@ -73,10 +83,11 @@ POST   /api/shift-roles                     { name, description? }              
 PUT    /api/shift-roles/{shift_role}                                                                       [shifts.create]
 DELETE /api/shift-roles/{shift_role}                                                                        [shifts.create]
 
-GET    /api/shifts
+GET    /api/shifts                          each shift includes confirmed_workers ([{worker_id, name}]) alongside the existing confirmed_count, so an admin sees who's confirmed at a glance without a click-through per shift
 GET    /api/shifts/{shift}
 POST   /api/shifts                          { event_id?, branch_id, client_id?, title, ..., quantity_needed?, starts_at, ends_at }   [shifts.create]
-PUT    /api/shifts/{shift}                                                                                                            [shifts.create]
+PUT    /api/shifts/{shift}                  also accepts { status } now — "Disable" on the admin page just sets status: cancelled through this. Changing starts_at/ends_at/location_address resets any already-`confirmed` assignment back to `pending_worker_confirmation` (see "Re-confirmation on shift changes" below)   [shifts.create]
+DELETE /api/shifts/{shift}                  permanent — cascades to positions, qualifications, interests, and assignments tied to it; prefer PUT { status: cancelled } unless that's genuinely wanted   [shifts.create]
 
 GET    /api/shifts/{shift}/positions
 POST   /api/shifts/{shift}/positions        { shift_role_id?, quantity_needed, hourly_rate? }             [shifts.create]
@@ -85,6 +96,8 @@ DELETE /api/shifts/{shift}/positions/{position}                                 
 
 POST   /api/shifts/{shift}/interest         { shift_position_id? }  worker expresses interest (waitlisted automatically if full)
 DELETE /api/shifts/{shift}/interest         worker withdraws (pending or waitlisted)
+GET    /api/my-interests                    the current worker's own pending/waitlisted interests across every shift, each with the full shift nested — what the worker-portal Jobs tab shows as "you're waiting on these"
+GET    /api/my-assignments                  the current worker's own pending-confirmation/confirmed assignments across every shift, same nested-shift shape — "your upcoming work"
 
 GET    /api/shifts/{shift}/interests        pending + waitlisted, for the dispatcher            [shifts.dispatch]
 GET    /api/shifts/{shift}/assignments                                                            [shifts.dispatch]
@@ -92,6 +105,7 @@ POST   /api/shifts/{shift}/assignments      { worker_id, shift_position_id?, tra
 
 POST   /api/assignments/{assignment}/confirm                worker confirms their own assignment
 POST   /api/assignments/{assignment}/cancellation-request   { reason? }  worker requests cancellation (reason required if <24h before start)
+DELETE /api/assignments/{assignment}                        dispatcher/admin cancels directly — no approval step, immediate. Soft (sets status: cancelled, keeps the row for history), not a real delete. Distinct from the worker-initiated cancellation-request above, which needs separate approval.   [shifts.dispatch]
 
 GET    /api/cancellation-requests                                pending queue                    [shifts.dispatch]
 POST   /api/cancellation-requests/{cancellationRequest}/approve                                    [shifts.dispatch]
@@ -123,6 +137,8 @@ A Dispatcher/Admin (`shifts.dispatch`) always sees every Shift, unfiltered — f
 | `warn` | Everyone, regardless of qualification | A `qualification_warning: true` flag on that worker's `ShiftInterestResource`/`AssignmentResource` if they don't actually meet the requirement |
 
 `override` and `warn` are both opt-in escape hatches for staffing shortages (e.g. an unpopular night shift nobody qualified wants) — they only differ in whether a dispatcher gets told about the mismatch afterward. Set the policy when creating/editing a shift: `POST /api/shifts { ..., qualification_policy: warn }` (`shifts.create`, same as any other shift field). A Shift with no requirements at all is visible to anyone who passes the access check regardless of policy.
+
+A third, independent filter applies only to `GET /api/shifts` (not `show`): a Worker only sees shifts with `status: open` or `partially_filled` in this browsable list — `cancelled`/`filled`/`in_progress`/`completed` ones are excluded, even if access+qualification both pass. (Bug fixed in this pass: the filter originally only allowed `open`, which meant a shift vanished from every worker's browsable list the moment even one assignment was confirmed — even with `quantity_needed > 1` still leaving open spots, since confirming an assignment moves a shift from `open` straight to `partially_filled`, not `filled`.) A dispatcher/admin sees every status here too. This is separate from the access/qualification rule above and applies on top of it.
 
 Failing the check under `strict` **hides** the shift entirely (404 on direct access, absent from the list) — it is never shown disabled/greyed out, per this project's explicit design choice. This applies to `GET /api/shifts`, `GET /api/shifts/{shift}`, and `POST /api/shifts/{shift}/interest` alike.
 

@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AcceptInviteView from '@/views/AcceptInviteView.vue'
 import LoginView from '@/views/LoginView.vue'
+import ForgotPasswordView from '@/views/ForgotPasswordView.vue'
+import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import HomeView from '@/views/HomeView.vue'
 import JobsView from '@/views/JobsView.vue'
 import CalendarView from '@/views/CalendarView.vue'
@@ -21,6 +23,18 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { public: true },
+    },
+    {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: ForgotPasswordView,
+      meta: { public: true },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPasswordView,
       meta: { public: true },
     },
     {

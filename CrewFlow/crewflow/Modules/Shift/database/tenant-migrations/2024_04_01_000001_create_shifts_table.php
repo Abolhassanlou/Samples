@@ -36,7 +36,7 @@ return new class extends Migration
             $table->dateTime('starts_at');
             $table->dateTime('ends_at');
 
-            $table->string('status')->default('open'); // open | filled | in_progress | completed | cancelled
+            $table->string('status')->default('open'); // open | partially_filled | filled | in_progress | completed | cancelled
 
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
 

@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:shifts.dispatch')->group(function () {
         Route::get('workers', [WorkerDirectoryController::class, 'index']);
         Route::post('workers/invite', [WorkerInvitationController::class, 'store']);
+        Route::post('workers/{user}/reactivate', [WorkerInvitationController::class, 'reactivate']);
     });
 
     // A worker's own personal record / qualifications / availability /

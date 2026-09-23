@@ -17,12 +17,12 @@ export function fetchInvitation(companyCode, token) {
     .then((r) => r.data.data)
 }
 
-export function acceptInvitation(companyCode, token, { name, phone, password }) {
+export function acceptInvitation(companyCode, token, { password }) {
   const baseURL = buildBaseUrl(companyCode)
   return axios
     .post(
       `${baseURL}/invitations/${token}/accept`,
-      { name, phone, password, password_confirmation: password },
+      { password, password_confirmation: password },
       { headers: { Accept: 'application/json' } },
     )
     .then((r) => r.data.data)

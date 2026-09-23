@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('shifts', [ShiftController::class, 'store']);
         Route::put('shifts/{shift}', [ShiftController::class, 'update']);
+        Route::delete('shifts/{shift}', [ShiftController::class, 'destroy']);
 
         Route::post('shifts/{shift}/positions', [ShiftPositionController::class, 'store']);
         Route::put('shifts/{shift}/positions/{position}', [ShiftPositionController::class, 'update']);
@@ -51,11 +52,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('shifts/{shift}/interest', [ShiftInterestController::class, 'store']);
     Route::delete('shifts/{shift}/interest', [ShiftInterestController::class, 'destroy']);
 
+    // A worker's own interests/assignments across every shift — what
+    // the Jobs tab uses. Self-scoped, no special permission.
+    Route::get('my-interests', [ShiftInterestController::class, 'mine']);
+    Route::get('my-assignments', [AssignmentController::class, 'mine']);
+
     // Dispatching: viewing interested workers + assigning requires shifts.dispatch.
     Route::middleware('permission:shifts.dispatch')->group(function () {
         Route::get('shifts/{shift}/interests', [ShiftInterestController::class, 'index']);
         Route::get('shifts/{shift}/assignments', [AssignmentController::class, 'index']);
         Route::post('shifts/{shift}/assignments', [AssignmentController::class, 'store']);
+        Route::delete('assignments/{assignment}', [AssignmentController::class, 'destroy']);
 
         Route::get('events/{event}/transport-groups', [TransportGroupController::class, 'index']);
         Route::post('events/{event}/transport-groups', [TransportGroupController::class, 'store']);

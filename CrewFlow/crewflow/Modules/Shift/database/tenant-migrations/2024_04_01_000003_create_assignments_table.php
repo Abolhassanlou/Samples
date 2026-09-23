@@ -19,6 +19,14 @@ return new class extends Migration
             $table->string('status')->default('pending_worker_confirmation'); // pending_worker_confirmation | confirmed | cancelled
             $table->dateTime('confirmed_at')->nullable();
 
+            // Set (and cleared once they re-confirm) when a dispatcher
+            // edits the shift's time/location after this worker had
+            // already confirmed — a human-readable note of exactly what
+            // changed, e.g. "Start time changed from 8:00 PM to 9:00 PM",
+            // so the worker isn't left guessing why they're being asked
+            // to confirm again. See ShiftController::update().
+            $table->text('change_note')->nullable();
+
             $table->timestamps();
 
             $table->unique(['shift_id', 'worker_id']);
