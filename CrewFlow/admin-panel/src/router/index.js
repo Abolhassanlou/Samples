@@ -12,6 +12,7 @@ import InviteWorkerView from '@/views/InviteWorkerView.vue'
 import WorkerDetailView from '@/views/WorkerDetailView.vue'
 import CustomFieldsView from '@/views/CustomFieldsView.vue'
 import ShiftsView from '@/views/ShiftsView.vue'
+import ChatView from '@/views/ChatView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -78,6 +79,11 @@ const router = createRouter({
       path: '/shifts',
       name: 'shifts',
       component: ShiftsView,
+    },
+    {
+      path: '/chat',
+      name: 'chat',
+      component: ChatView,
     },
   ],
 })

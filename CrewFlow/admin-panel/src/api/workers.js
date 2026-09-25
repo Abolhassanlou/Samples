@@ -11,6 +11,7 @@ export function fetchWorkers(filters = {}) {
   if (filters.eligibleOnly) params.eligible = 1
   if (filters.dayOfWeek !== '' && filters.dayOfWeek != null) params.day_of_week = filters.dayOfWeek
   if (filters.time) params.time = filters.time
+  if (filters.workAuthorizationStatus) params.work_authorization_status = filters.workAuthorizationStatus
 
   return client.get('workers', { params }).then((r) => r.data.data)
 }
@@ -21,6 +22,15 @@ export function fetchQualifications() {
 
 export function fetchBranches() {
   return client.get('branches').then((r) => r.data.data)
+}
+
+/**
+ * Every worker whose work_authorization_expiry_date is already past or
+ * due within 30 days, most urgent first — powers the dashboard's
+ * expiring-documents list. users.manage only.
+ */
+export function fetchExpiringDocuments() {
+  return client.get('workers/expiring-documents').then((r) => r.data.data)
 }
 
 /**

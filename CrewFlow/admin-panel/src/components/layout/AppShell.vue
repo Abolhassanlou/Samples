@@ -9,6 +9,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: 'dashboard' },
   { to: '/shifts', label: 'Shifts', icon: 'shifts' },
   { to: '/workers', label: 'Workers', icon: 'workers' },
+  { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/users', label: 'Users', icon: 'users' },
   { to: '/roles', label: 'Roles', icon: 'roles' },
   { to: '/custom-fields', label: 'Custom Fields', icon: 'customFields' },
@@ -72,6 +73,21 @@ function handleLogout() {
             <circle cx="9" cy="10.5" r="2.2" />
             <path d="M6.3 15.5c0-1.7 1.3-2.8 2.7-2.8s2.7 1.1 2.7 2.8" stroke-linecap="round" />
             <path d="M14.5 9.5h3.2M14.5 12.5h3.2M14.5 15.5h1.8" stroke-linecap="round" />
+          </svg>
+
+          <svg
+            v-else-if="item.icon === 'chat'"
+            class="nav-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <path
+              d="M4 6.5c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H9l-4 3.5V16.5H6c-1.1 0-2-.9-2-2v-8Z"
+              stroke-linejoin="round"
+            />
+            <path d="M8 9.5h8M8 13h5" stroke-linecap="round" />
           </svg>
 
           <svg

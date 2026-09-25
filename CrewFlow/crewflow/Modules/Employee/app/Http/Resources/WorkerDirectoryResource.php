@@ -22,6 +22,8 @@ class WorkerDirectoryResource extends JsonResource
             'phone' => $this->user->phone,
             'status' => $this->status,
             'work_authorization_status' => $this->work_authorization_status,
+            'work_authorization_type' => $this->work_authorization_type,
+            'work_authorization_expiry_date' => $this->work_authorization_expiry_date,
             'home_branch_id' => $companyWorker?->home_branch_id,
             'home_branch_name' => $companyWorker?->homeBranch?->name,
             'works_night_shifts' => (bool) $companyWorker?->works_night_shifts,

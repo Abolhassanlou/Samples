@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Modules\Core\Http\Controllers\Controller;
 use Modules\Core\Traits\ApiResponse;
 use Modules\Employee\Http\Resources\WorkerDirectoryResource;
+use Modules\Employee\Http\Resources\WorkerExpiringDocumentResource;
 use Modules\Employee\Models\Worker;
 
 /**
@@ -38,6 +39,16 @@ class WorkerDirectoryController extends Controller
             });
         }
 
+        // Filter by work_authorization_status directly — e.g. ?work_
+        // authorization_status=expired surfaces exactly the workers
+        // ExpireWorkAuthorizations just flipped, right alongside every
+        // other search/filter this directory already supports (branch,
+        // qualification, availability, ...), rather than only being
+        // visible on the separate expiring-documents dashboard list.
+        if ($request->filled('work_authorization_status')) {
+            $query->where('work_authorization_status', $request->query('work_authorization_status'));
+        }
+
         // NOTE: $request->string() returns a Stringable OBJECT, not a
         // plain string — using it as an Eloquent where() value can fail
         // to bind/match correctly. $request->query() returns the raw
@@ -56,12 +67,19 @@ class WorkerDirectoryController extends Controller
         }
 
         // Only workers who are actually assignable right now: active
-        // employment relationship, an active (non-expired) contract, and
-        // valid (or not-required) work authorization — the same rule
-        // Shift's AssignmentController enforces at the point of assignment.
+        // employment relationship, an active (non-expired) contract,
+        // valid (or not-required) work authorization, AND — if a
+        // work_authorization_expiry_date is on file — that it hasn't
+        // already passed. Mirrors WorkerEligibility::isAssignable()
+        // exactly (see that class's docblock for why the expiry check
+        // is independent of the status check).
         if ($request->boolean('eligible')) {
             $query->where('status', 'active')
                 ->whereIn('work_authorization_status', ['valid', 'not_required'])
+                ->where(function ($w) {
+                    $w->whereNull('work_authorization_expiry_date')
+                        ->orWhereDate('work_authorization_expiry_date', '>=', now()->toDateString());
+                })
                 ->whereHas('companyWorker', function ($q) {
                     $q->where('status', 'active')
                         ->whereHas('contracts', function ($c) {
@@ -106,5 +124,28 @@ class WorkerDirectoryController extends Controller
         }
 
         return $this->success(WorkerDirectoryResource::collection($query->get()));
+    }
+
+    /**
+     * Powers the admin dashboard's "expiring/expired documents" list —
+     * every worker with a work_authorization_expiry_date already past,
+     * OR due within the next 30 days, oldest/most-urgent first. This is
+     * deliberately a plain list an admin sees on every login, not an
+     * email — see the Authentication module if that's ever wanted later
+     * (nothing here sends anything; it's a pull, not a push).
+     *
+     * 30 days is a fixed threshold for now, not a per-company setting.
+     */
+    public function expiringDocuments(Request $request)
+    {
+        $threshold = now()->addDays(30)->toDateString();
+
+        $workers = Worker::with('user')
+            ->whereNotNull('work_authorization_expiry_date')
+            ->whereDate('work_authorization_expiry_date', '<=', $threshold)
+            ->orderBy('work_authorization_expiry_date')
+            ->get();
+
+        return $this->success(WorkerExpiringDocumentResource::collection($workers));
     }
 }
