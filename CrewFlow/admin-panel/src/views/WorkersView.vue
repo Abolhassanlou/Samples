@@ -20,6 +20,7 @@ const nightShift = ref(false)
 const eligibleOnly = ref(false)
 const dayOfWeek = ref('')
 const time = ref('')
+const workAuthorizationStatus = ref('')
 
 const hasTimeFilter = computed(() => dayOfWeek.value !== '' && !!time.value)
 const timeFilterIncomplete = computed(() => (dayOfWeek.value !== '') !== !!time.value)
@@ -43,6 +44,7 @@ async function loadWorkers() {
       eligibleOnly: eligibleOnly.value,
       dayOfWeek: dayOfWeek.value,
       time: hasTimeFilter.value ? time.value : '',
+      workAuthorizationStatus: workAuthorizationStatus.value,
     })
   } catch {
     errorMessage.value = 'Could not load workers. Check your connection and try again.'
@@ -59,7 +61,7 @@ onMounted(async () => {
 // Re-query whenever a filter changes, except while the day/time pair is
 // half-filled (avoids firing a request with only one of the two set).
 watch(
-  [search, qualificationId, branchId, workTimeModel, nightShift, eligibleOnly, dayOfWeek, time],
+  [search, qualificationId, branchId, workTimeModel, nightShift, eligibleOnly, dayOfWeek, time, workAuthorizationStatus],
   () => {
     if (timeFilterIncomplete.value) return
     loadWorkers()
@@ -104,6 +106,15 @@ function formatTime(value) {
           <option value="casual">Fallweise Beschäftigung</option>
         </select>
 
+        <select v-model="workAuthorizationStatus" class="filter-input">
+          <option value="">Any work authorization status</option>
+          <option value="pending">Pending</option>
+          <option value="valid">Valid</option>
+          <option value="expired">Expired</option>
+          <option value="not_required">Not required</option>
+          <option value="rejected">Rejected</option>
+        </select>
+
         <label class="night-filter">
           <input type="checkbox" v-model="nightShift" />
           Works night shifts
@@ -143,7 +154,15 @@ function formatTime(value) {
             <span class="worker-name">{{ worker.name }}</span>
             <span class="worker-personnel">{{ worker.employee_number || worker.personnel_number }}</span>
             <span v-if="worker.works_night_shifts" class="night-badge">🌙 Night shifts</span>
-            <span v-if="worker.status !== 'active'" class="status-badge">{{ worker.status }}</span>
+            <span v-if="worker.status !== 'active'" class="status-badge status-badge--employment">
+              Employment: {{ worker.status }}
+            </span>
+            <span
+              v-if="!['valid', 'not_required'].includes(worker.work_authorization_status)"
+              class="status-badge status-badge--auth"
+            >
+              Work authorization: {{ worker.work_authorization_status }}
+            </span>
           </div>
           <span class="worker-branch">{{ worker.home_branch_name || 'No branch set' }}</span>
         </header>
@@ -263,11 +282,19 @@ function formatTime(value) {
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--color-danger);
-  background: rgba(181, 83, 63, 0.12);
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
   margin-left: 0.5rem;
+}
+
+.status-badge--employment {
+  color: var(--color-amber-dark);
+  background: rgba(224, 151, 58, 0.16);
+}
+
+.status-badge--auth {
+  color: var(--color-danger);
+  background: rgba(181, 83, 63, 0.12);
 }
 
 .filter-hint {

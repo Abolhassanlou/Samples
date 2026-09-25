@@ -1,14 +1,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import AppShell from '@/components/layout/AppShell.vue'
+import MyShiftDetailSheet from '@/components/MyShiftDetailSheet.vue'
 import {
   fetchShifts,
   fetchMyInterests,
   fetchMyAssignments,
   expressInterest,
-  withdrawInterest,
-  confirmAssignment,
-  requestCancellation,
 } from '@/api/shifts'
 
 const shifts = ref([])
@@ -22,11 +20,14 @@ const actionError = ref('')
 // interest — see the field-grid of buttons rendered per position).
 const busyKey = ref(null)
 
-// The item currently open in the full-detail overlay — null when
-// closed. Normalized to always carry { kind, shift, ...extra } so the
-// overlay template works the same whether it's an available shift
-// being browsed or a committed interest/assignment.
-const selectedItem = ref(null)
+// Only ever holds a "my shift" item (kind: interest|assignment) — the
+// shared MyShiftDetailSheet handles withdraw/confirm/cancel itself.
+const selectedMyShift = ref(null)
+
+// A SEPARATE overlay, specific to Jobs — browsing an available shift
+// (kind: available) has its own express-interest actions the shared
+// sheet doesn't need to know about.
+const selectedAvailableShift = ref(null)
 
 async function loadAll() {
   loading.value = true
@@ -74,13 +75,11 @@ const myShifts = computed(() => {
   })
 })
 
-function formatDateRange(shift, full = false) {
+function formatDateRange(shift) {
   if (!shift?.starts_at) return ''
   const start = new Date(shift.starts_at)
   const end = shift.ends_at ? new Date(shift.ends_at) : null
-  const dateFmt = full
-    ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
-    : { month: 'short', day: 'numeric' }
+  const dateFmt = { month: 'short', day: 'numeric' }
   const timeFmt = { hour: '2-digit', minute: '2-digit' }
   const datePart = start.toLocaleDateString(undefined, dateFmt)
   const startTime = start.toLocaleTimeString(undefined, timeFmt)
@@ -92,66 +91,6 @@ function rateLabel(shift) {
   if (shift.rate_type === 'hourly' && shift.hourly_rate) return `€${shift.hourly_rate}/hr`
   if (shift.rate_type === 'fixed' && shift.fixed_amount) return `€${shift.fixed_amount} fixed`
   return ''
-}
-
-function openMyShiftDetail(item) {
-  selectedItem.value = item
-}
-
-function openAvailableShiftDetail(shift) {
-  selectedItem.value = { kind: 'available', shift }
-}
-
-function closeDetail() {
-  selectedItem.value = null
-}
-
-async function handleExpressInterest(shift, positionId = null) {
-  const key = `${shift.id}-${positionId ?? 'none'}`
-  busyKey.value = key
-  actionError.value = ''
-  try {
-    await expressInterest(shift.id, positionId)
-    await loadAll()
-    closeDetail()
-  } catch (error) {
-    actionError.value = error.response?.data?.message || 'Could not express interest in this shift.'
-  } finally {
-    busyKey.value = null
-  }
-}
-
-async function handleWithdraw(item) {
-  busyKey.value = `withdraw-${item.shift_id}`
-  try {
-    await withdrawInterest(item.shift_id)
-    await loadAll()
-    closeDetail()
-  } finally {
-    busyKey.value = null
-  }
-}
-
-async function handleConfirm(item) {
-  busyKey.value = `confirm-${item.id}`
-  try {
-    await confirmAssignment(item.id)
-    await loadAll()
-    closeDetail()
-  } finally {
-    busyKey.value = null
-  }
-}
-
-async function handleRequestCancellation(item) {
-  busyKey.value = `cancel-${item.id}`
-  try {
-    await requestCancellation(item.id)
-    await loadAll()
-    closeDetail()
-  } finally {
-    busyKey.value = null
-  }
 }
 
 function statusLabel(item) {
@@ -166,6 +105,21 @@ function statusClass(item) {
     return item.status === 'confirmed' ? 'status-badge--confirmed' : 'status-badge--pending'
   }
   return item.status === 'waitlisted' ? 'status-badge--waitlisted' : 'status-badge--pending'
+}
+
+async function handleExpressInterest(shift, positionId = null) {
+  const key = `${shift.id}-${positionId ?? 'none'}`
+  busyKey.value = key
+  actionError.value = ''
+  try {
+    await expressInterest(shift.id, positionId)
+    await loadAll()
+    selectedAvailableShift.value = null
+  } catch (error) {
+    actionError.value = error.response?.data?.message || 'Could not express interest in this shift.'
+  } finally {
+    busyKey.value = null
+  }
 }
 </script>
 
@@ -187,7 +141,7 @@ function statusClass(item) {
             :key="`${item.kind}-${item.id}`"
             class="shift-card"
             :class="{ 'shift-card--changed': item.change_note }"
-            @click="openMyShiftDetail(item)"
+            @click="selectedMyShift = item"
           >
             <div class="shift-card-top">
               <span class="shift-title">{{ item.shift?.title }}</span>
@@ -210,7 +164,7 @@ function statusClass(item) {
         <h2 class="section-title">Available shifts</h2>
         <div v-if="availableShifts.length > 0" class="shift-list">
           <div v-for="shift in availableShifts" :key="shift.id" class="shift-card shift-card--available">
-            <button class="shift-card-tap" @click="openAvailableShiftDetail(shift)">
+            <button class="shift-card-tap" @click="selectedAvailableShift = shift">
               <div class="shift-card-top">
                 <span class="shift-title">{{ shift.title }}</span>
                 <span v-if="rateLabel(shift)" class="rate-badge">{{ rateLabel(shift) }}</span>
@@ -254,126 +208,72 @@ function statusClass(item) {
       </section>
     </template>
 
-    <!-- Full-detail overlay — everything ShiftResource carries, not
-         just the summary shown on the card. -->
-    <div v-if="selectedItem" class="detail-overlay" @click.self="closeDetail">
+    <MyShiftDetailSheet
+      :item="selectedMyShift"
+      @close="selectedMyShift = null"
+      @updated="loadAll"
+    />
+
+    <!-- Available-shift detail — its own, smaller overlay (express
+         interest only, no withdraw/confirm/cancel). -->
+    <div v-if="selectedAvailableShift" class="detail-overlay" @click.self="selectedAvailableShift = null">
       <div class="detail-sheet">
         <div class="detail-header">
-          <h2 class="detail-title">{{ selectedItem.shift?.title }}</h2>
-          <button class="detail-close" @click="closeDetail">✕</button>
+          <h2 class="detail-title">{{ selectedAvailableShift.title }}</h2>
+          <button class="detail-close" @click="selectedAvailableShift = null">✕</button>
         </div>
-
-        <span
-          v-if="selectedItem.kind !== 'available'"
-          class="status-badge"
-          :class="statusClass(selectedItem)"
-        >
-          {{ statusLabel(selectedItem) }}
-        </span>
-
-        <div v-if="selectedItem.change_note" class="change-note change-note--sheet">
-          <strong>This shift was updated since you confirmed:</strong>
-          <p>{{ selectedItem.change_note }}</p>
-        </div>
-
-        <p v-if="selectedItem.qualification_warning" class="qualification-warning">
-          Note: you may not fully meet this shift's usual requirements.
-        </p>
 
         <dl class="detail-list">
           <div class="detail-row">
             <dt>When</dt>
-            <dd>{{ formatDateRange(selectedItem.shift, true) }}</dd>
+            <dd>{{ formatDateRange(selectedAvailableShift) }}</dd>
           </div>
-          <div v-if="selectedItem.shift?.location_address" class="detail-row">
+          <div v-if="selectedAvailableShift.location_address" class="detail-row">
             <dt>Location</dt>
-            <dd>
-              {{ selectedItem.shift.location_address }}
-              <span v-if="selectedItem.shift.location_type === 'online'"> (online)</span>
-            </dd>
+            <dd>{{ selectedAvailableShift.location_address }}</dd>
           </div>
-          <div v-if="selectedItem.role_name" class="detail-row">
-            <dt>Role</dt>
-            <dd>{{ selectedItem.role_name }}</dd>
-          </div>
-          <div v-if="rateLabel(selectedItem.shift)" class="detail-row">
+          <div v-if="rateLabel(selectedAvailableShift)" class="detail-row">
             <dt>Rate</dt>
-            <dd>{{ rateLabel(selectedItem.shift) }}</dd>
+            <dd>{{ rateLabel(selectedAvailableShift) }}</dd>
           </div>
-          <div v-if="selectedItem.shift?.internal_contact_name" class="detail-row">
+          <div v-if="selectedAvailableShift.internal_contact_name" class="detail-row">
             <dt>Contact</dt>
             <dd>
-              {{ selectedItem.shift.internal_contact_name }}
-              <span v-if="selectedItem.shift.internal_contact_phone"> · {{ selectedItem.shift.internal_contact_phone }}</span>
+              {{ selectedAvailableShift.internal_contact_name }}
+              <span v-if="selectedAvailableShift.internal_contact_phone"> · {{ selectedAvailableShift.internal_contact_phone }}</span>
             </dd>
           </div>
-          <div v-if="selectedItem.shift?.client_contact_name" class="detail-row">
-            <dt>On-site contact</dt>
-            <dd>
-              {{ selectedItem.shift.client_contact_name }}
-              <span v-if="selectedItem.shift.client_contact_phone"> · {{ selectedItem.shift.client_contact_phone }}</span>
-            </dd>
-          </div>
-          <div v-if="selectedItem.shift?.description" class="detail-row detail-row--wide">
+          <div v-if="selectedAvailableShift.description" class="detail-row detail-row--wide">
             <dt>Description</dt>
-            <dd class="detail-description">{{ selectedItem.shift.description }}</dd>
+            <dd class="detail-description">{{ selectedAvailableShift.description }}</dd>
           </div>
         </dl>
 
         <p v-if="actionError" class="error-banner error-banner--in-sheet" role="alert">{{ actionError }}</p>
 
-        <!-- Available shift: express interest (with position picker if needed) -->
-        <div v-if="selectedItem.kind === 'available'" class="detail-actions">
-          <template v-if="selectedItem.shift.positions?.length > 0">
-            <div v-for="position in selectedItem.shift.positions" :key="position.id" class="position-row">
+        <div class="detail-actions">
+          <template v-if="selectedAvailableShift.positions?.length > 0">
+            <div v-for="position in selectedAvailableShift.positions" :key="position.id" class="position-row">
               <span class="position-name">
                 {{ position.role_name }}
                 <span class="position-count">({{ position.confirmed_count }}/{{ position.quantity_needed }})</span>
               </span>
               <button
                 class="interest-button"
-                :disabled="busyKey === `${selectedItem.shift.id}-${position.id}`"
-                @click="handleExpressInterest(selectedItem.shift, position.id)"
+                :disabled="busyKey === `${selectedAvailableShift.id}-${position.id}`"
+                @click="handleExpressInterest(selectedAvailableShift, position.id)"
               >
-                {{ busyKey === `${selectedItem.shift.id}-${position.id}` ? 'Applying…' : 'Express interest' }}
+                {{ busyKey === `${selectedAvailableShift.id}-${position.id}` ? 'Applying…' : 'Express interest' }}
               </button>
             </div>
           </template>
           <button
             v-else
             class="interest-button interest-button--full"
-            :disabled="busyKey === `${selectedItem.shift.id}-none`"
-            @click="handleExpressInterest(selectedItem.shift)"
+            :disabled="busyKey === `${selectedAvailableShift.id}-none`"
+            @click="handleExpressInterest(selectedAvailableShift)"
           >
-            {{ busyKey === `${selectedItem.shift.id}-none` ? 'Applying…' : 'Express interest' }}
-          </button>
-        </div>
-
-        <!-- My shifts: withdraw / confirm / request cancellation -->
-        <div v-else class="detail-actions">
-          <button
-            v-if="selectedItem.kind === 'interest'"
-            class="sheet-button sheet-button--danger"
-            :disabled="busyKey === `withdraw-${selectedItem.shift_id}`"
-            @click="handleWithdraw(selectedItem)"
-          >
-            {{ busyKey === `withdraw-${selectedItem.shift_id}` ? 'Withdrawing…' : 'Withdraw interest' }}
-          </button>
-          <button
-            v-if="selectedItem.kind === 'assignment' && selectedItem.status === 'pending_worker_confirmation'"
-            class="sheet-button sheet-button--confirm"
-            :disabled="busyKey === `confirm-${selectedItem.id}`"
-            @click="handleConfirm(selectedItem)"
-          >
-            {{ busyKey === `confirm-${selectedItem.id}` ? 'Confirming…' : 'Confirm' }}
-          </button>
-          <button
-            v-if="selectedItem.kind === 'assignment' && selectedItem.status === 'confirmed'"
-            class="sheet-button sheet-button--danger"
-            :disabled="busyKey === `cancel-${selectedItem.id}`"
-            @click="handleRequestCancellation(selectedItem)"
-          >
-            {{ busyKey === `cancel-${selectedItem.id}` ? 'Requesting…' : 'Request cancellation' }}
+            {{ busyKey === `${selectedAvailableShift.id}-none` ? 'Applying…' : 'Express interest' }}
           </button>
         </div>
       </div>
@@ -542,24 +442,6 @@ function statusClass(item) {
   margin: 0 0 0.5rem;
 }
 
-.change-note--sheet {
-  margin: 0.75rem 0;
-  padding: 0.7rem 0.85rem;
-}
-
-.change-note--sheet strong {
-  display: block;
-  font-size: 0.8rem;
-  margin-bottom: 0.3rem;
-}
-
-.change-note--sheet p {
-  font-weight: 400;
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--color-ink);
-}
-
 .shift-actions {
   display: flex;
   align-items: center;
@@ -567,28 +449,6 @@ function statusClass(item) {
   margin: 0 1rem 0.9rem;
   padding-top: 0.6rem;
   border-top: 1px dashed var(--color-line);
-}
-
-.text-action {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.text-action--danger {
-  color: var(--color-danger);
-}
-
-.text-action--confirm {
-  color: var(--color-green);
-}
-
-.text-action:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .position-list {
@@ -647,7 +507,7 @@ function statusClass(item) {
   font-size: 0.85rem;
 }
 
-/* Detail overlay */
+/* Available-shift detail overlay (smaller, no shared component) */
 .detail-overlay {
   position: fixed;
   inset: 0;
@@ -728,32 +588,5 @@ function statusClass(item) {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-}
-
-.sheet-button {
-  width: 100%;
-  padding: 0.7rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border-radius: 8px;
-  border: 1px solid var(--color-line);
-  background: #fff;
-  cursor: pointer;
-}
-
-.sheet-button--danger {
-  color: var(--color-danger);
-  border-color: rgba(181, 83, 63, 0.35);
-}
-
-.sheet-button--confirm {
-  color: #fff;
-  background: var(--color-green);
-  border: none;
-}
-
-.sheet-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 </style>

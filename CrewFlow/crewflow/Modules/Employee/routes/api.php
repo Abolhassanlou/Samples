@@ -64,6 +64,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('users/{user}/contracts', [EmploymentContractController::class, 'store']);
         Route::put('users/{user}/contracts/{contract}', [EmploymentContractController::class, 'update']);
+
+        // The admin dashboard's "expiring/expired documents" list —
+        // gated with the other work-authorization-adjacent actions
+        // (compliance review), not shifts.dispatch.
+        Route::get('workers/expiring-documents', [WorkerDirectoryController::class, 'expiringDocuments']);
     });
     Route::middleware('permission:qualifications.manage')->group(function () {
         Route::post('users/{user}/qualifications', [WorkerQualificationController::class, 'store']);

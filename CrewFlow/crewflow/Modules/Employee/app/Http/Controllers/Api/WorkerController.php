@@ -12,9 +12,11 @@ use Modules\Employee\Models\Worker;
 
 /**
  * A worker can view their own record; only users.manage can view/edit
- * anyone else's, or set status/work-authorization fields. This
- * deliberately does NOT touch employment relationship (CompanyWorker)
- * or contract (EmploymentContract) data — see those controllers instead.
+ * anyone else's, or set status/work_authorization_status (a worker CAN
+ * self-report their own work_authorization_type/expiry_date claim —
+ * see update()'s docblock). This deliberately does NOT touch employment
+ * relationship (CompanyWorker) or contract (EmploymentContract) data —
+ * see those controllers instead.
  */
 class WorkerController extends Controller
 {
@@ -30,10 +32,18 @@ class WorkerController extends Controller
     }
 
     /**
-     * A worker editing their own record can only touch personal facts —
-     * status and work-authorization fields are deliberately stripped
-     * out unless the requester has users.manage, so a worker can never
-     * self-approve their own work authorization or activate themselves.
+     * A worker editing their own record can touch personal facts AND
+     * now their own claimed work_authorization_type/expiry_date too —
+     * e.g. "I have an Austrian passport" or "I have a Rot-Weiß-Rot Karte
+     * expiring on X". This is just their OWN CLAIM, not a verified fact:
+     * `status` and `work_authorization_status` stay stripped out unless
+     * the requester has users.manage, so a worker can never self-approve
+     * their own work authorization or activate themselves — an admin
+     * still has to look at the uploaded passport/permit document (see
+     * the Documents system) and set work_authorization_status
+     * themselves before this worker becomes assignable
+     * (WorkerEligibility gates on that status, never on the type/expiry
+     * claim alone).
      *
      * `bank_account_holder_name` should match the worker's own name in
      * practice, but that's deliberately just a note shown on the
@@ -48,7 +58,7 @@ class WorkerController extends Controller
 
         $data = $request->validated();
         if ($isSelf && ! $request->user()->can('users.manage')) {
-            unset($data['status'], $data['work_authorization_status'], $data['work_authorization_type'], $data['work_authorization_expiry_date']);
+            unset($data['status'], $data['work_authorization_status']);
         }
 
         $worker = Worker::firstOrCreate(['user_id' => $user->id]);

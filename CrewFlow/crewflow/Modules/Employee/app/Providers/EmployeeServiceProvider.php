@@ -2,8 +2,11 @@
 
 namespace Modules\Employee\Providers;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Modules\Employee\Console\Commands\ExpireContracts;
+use Modules\Employee\Console\Commands\ExpireWorkAuthorizations;
 
 class EmployeeServiceProvider extends ServiceProvider
 {
@@ -16,6 +19,8 @@ class EmployeeServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerRoutes();
         $this->registerViews();
+        $this->registerCommands();
+        $this->registerSchedule();
         // Deliberately NOT calling loadMigrationsFrom() — see Authentication
         // module's README for why. Migrations live in `database/tenant-migrations`
         // and are picked up only by `php artisan tenants:migrate`.
@@ -51,5 +56,32 @@ class EmployeeServiceProvider extends ServiceProvider
     protected function registerViews(): void
     {
         $this->loadViewsFrom(module_path($this->moduleName, 'resources/views'), $this->moduleNameLower);
+    }
+
+    protected function registerCommands(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ExpireWorkAuthorizations::class,
+                ExpireContracts::class,
+            ]);
+        }
+    }
+
+    /**
+     * Registered here, not in the core app's routes/console.php, so
+     * this module stays self-contained — installing/removing it is a
+     * single directory swap with no edit to any file outside Modules/
+     * Employee needed. `$this->app->booted()` defers this until the
+     * Schedule singleton actually exists; running it any earlier in
+     * boot() would resolve too soon.
+     */
+    protected function registerSchedule(): void
+    {
+        $this->app->booted(function () {
+            $schedule = $this->app->make(Schedule::class);
+            $schedule->command(ExpireWorkAuthorizations::class)->daily();
+            $schedule->command(ExpireContracts::class)->daily();
+        });
     }
 }
