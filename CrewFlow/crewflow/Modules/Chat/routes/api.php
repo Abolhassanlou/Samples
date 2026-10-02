@@ -10,7 +10,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('chats/{conversation}/messages', [ChatController::class, 'messages']);
     Route::post('chats/{conversation}/messages', [ChatController::class, 'sendMessage']);
 
-    // Broadcasting to many recipients at once is a dispatching action —
-    // reuses shifts.dispatch rather than introducing a new permission.
-    Route::post('chats/broadcast', [ChatController::class, 'broadcast'])->middleware('permission:shifts.dispatch');
+    // Broadcasting to many recipients at once, and browsing the history
+    // of past broadcasts, are both dispatching actions — reuse
+    // shifts.dispatch rather than introducing a new permission.
+    Route::middleware('permission:shifts.dispatch')->group(function () {
+        Route::post('chats/broadcast', [ChatController::class, 'broadcast']);
+        Route::get('chats/broadcasts', [ChatController::class, 'broadcastsIndex']);
+        Route::get('chats/broadcasts/{broadcast}', [ChatController::class, 'broadcastShow']);
+    });
 });
