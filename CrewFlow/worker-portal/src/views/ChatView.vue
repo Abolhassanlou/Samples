@@ -42,14 +42,27 @@ function conversationTitle(conversation) {
   return other?.name || 'Conversation'
 }
 
+const showArchived = ref(false)
+
 async function openConversation(conversation) {
   activeConversation.value = conversation
+  showArchived.value = false
   loadingMessages.value = true
   sendError.value = ''
   try {
     messages.value = await fetchMessages(conversation.id)
     await nextTick()
     scrollToBottom()
+  } finally {
+    loadingMessages.value = false
+  }
+}
+
+async function toggleArchived() {
+  loadingMessages.value = true
+  try {
+    messages.value = await fetchMessages(activeConversation.value.id, !showArchived.value)
+    showArchived.value = !showArchived.value
   } finally {
     loadingMessages.value = false
   }
@@ -138,19 +151,25 @@ function formatConversationTime(dateString) {
 
       <div class="thread-body">
         <p v-if="loadingMessages" class="loading-note">Loading…</p>
-        <div v-else class="message-list">
-          <div
-            v-for="message in messages"
-            :key="message.id"
-            class="message-bubble"
-            :class="{ 'message-bubble--mine': message.sender_id === auth.user.id }"
-          >
-            <span v-if="message.sender_id !== auth.user.id" class="message-sender">{{ message.sender_name }}</span>
-            <p class="message-text">{{ message.message }}</p>
+        <template v-else>
+          <button class="archive-toggle" @click="toggleArchived">
+            {{ showArchived ? 'Hide announcements older than 30 days' : 'Show announcements older than 30 days' }}
+          </button>
+          <div class="message-list">
+            <div
+              v-for="message in messages"
+              :key="message.id"
+              class="message-bubble"
+              :class="{ 'message-bubble--mine': message.sender_id === auth.user.id }"
+            >
+              <span v-if="message.sender_id !== auth.user.id" class="message-sender">{{ message.sender_name }}</span>
+              <span v-if="message.is_broadcast" class="announcement-tag">📢 Announcement</span>
+              <p class="message-text">{{ message.message }}</p>
             <span class="message-time">{{ formatTime(message.created_at) }}</span>
+            </div>
+            <div ref="messagesEnd"></div>
           </div>
-          <div ref="messagesEnd"></div>
-        </div>
+        </template>
       </div>
 
       <p v-if="sendError" class="error-banner error-banner--inline" role="alert">{{ sendError }}</p>
@@ -297,12 +316,38 @@ function formatConversationTime(dateString) {
   border-radius: 12px 12px 2px 12px;
 }
 
+.archive-toggle {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: 1px dashed var(--color-line);
+  border-radius: 8px;
+  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-slate);
+  cursor: pointer;
+}
+
 .message-sender {
   display: block;
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--color-amber-dark);
   margin-bottom: 0.15rem;
+}
+
+.announcement-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-amber-dark);
+  background: rgba(224, 151, 58, 0.18);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  margin-bottom: 0.25rem;
 }
 
 .message-text {

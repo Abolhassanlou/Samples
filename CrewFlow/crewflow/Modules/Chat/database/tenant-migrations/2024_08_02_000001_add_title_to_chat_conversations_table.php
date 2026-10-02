@@ -9,6 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('chat_conversations', function (Blueprint $table) {
+            // Only meaningful for type=group — a direct conversation's
+            // "title" in the UI falls back to the other participant's
+            // name instead (see ChatConversationResource/the frontends).
             $table->string('title')->nullable()->after('type');
         });
     }

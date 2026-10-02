@@ -13,6 +13,7 @@ class ChatMessage extends Model
     protected $fillable = [
         'conversation_id',
         'sender_id',
+        'broadcast_id',
         'message',
     ];
 
@@ -24,5 +25,16 @@ class ChatMessage extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    /**
+     * Null for an ordinary message either side typed directly — set
+     * only on a recipient's copy of a broadcast (see
+     * ChatController::broadcast()). Drives the 30-day rolling archive
+     * in messages() — see that method's docblock.
+     */
+    public function broadcast(): BelongsTo
+    {
+        return $this->belongsTo(ChatBroadcast::class, 'broadcast_id');
     }
 }
