@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Modules\Employee\Console\Commands\ExpireContracts;
 use Modules\Employee\Console\Commands\ExpireWorkAuthorizations;
+use Modules\Employee\Contracts\ReservedTimeProvider;
+use Modules\Employee\Services\NullReservedTimeProvider;
 
 class EmployeeServiceProvider extends ServiceProvider
 {
@@ -28,7 +30,11 @@ class EmployeeServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        // bindIf, not bind: if another module (Shift) has already bound a
+        // real provider this leaves it alone, and if it binds later its
+        // plain bind() replaces this — so registration order between the
+        // two modules doesn't matter.
+        $this->app->bindIf(ReservedTimeProvider::class, NullReservedTimeProvider::class);
     }
 
     protected function registerConfig(): void

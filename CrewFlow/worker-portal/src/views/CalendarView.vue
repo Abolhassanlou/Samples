@@ -1,13 +1,21 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
 import MyShiftDetailSheet from '@/components/MyShiftDetailSheet.vue'
+import AvailabilityEditor from '@/components/AvailabilityEditor.vue'
 import { fetchMyInterests, fetchMyAssignments } from '@/api/shifts'
 
 const myInterests = ref([])
 const myAssignments = ref([])
 const loading = ref(true)
 const loadError = ref('')
+
+// Two sub-views under this tab: the month of shifts, and the worker's own
+// recurring weekly availability (see AvailabilityEditor).
+// Home links straight to the second one with ?view=availability.
+const route = useRoute()
+const view = ref(route.query.view === 'availability' ? 'availability' : 'shifts') // 'shifts' | 'availability'
 
 const filter = ref('all') // 'all' | 'confirmed' | 'pending'
 const today = new Date()
@@ -184,6 +192,20 @@ async function handleUpdated() {
       <h1 class="title">Calendar</h1>
     </header>
 
+    <div class="view-switch">
+      <button class="view-tab" :class="{ 'view-tab--active': view === 'shifts' }" @click="view = 'shifts'">
+        My shifts
+      </button>
+      <button
+        class="view-tab"
+        :class="{ 'view-tab--active': view === 'availability' }"
+        @click="view = 'availability'"
+      >
+        My availability
+      </button>
+    </div>
+
+    <template v-if="view === 'shifts'">
     <p v-if="loading" class="loading-note">Loading…</p>
     <p v-else-if="loadError" class="error-banner" role="alert">{{ loadError }}</p>
 
@@ -265,6 +287,9 @@ async function handleUpdated() {
     </template>
 
     <MyShiftDetailSheet :item="selectedItem" @close="selectedItem = null" @updated="handleUpdated" />
+    </template>
+
+    <AvailabilityEditor v-else />
   </AppShell>
 </template>
 
@@ -295,6 +320,31 @@ async function handleUpdated() {
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-size: 0.85rem;
+}
+
+.view-switch {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0 1.25rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.view-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.4rem 0 0.55rem;
+  margin-bottom: -1px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-slate);
+  cursor: pointer;
+}
+
+.view-tab--active {
+  color: var(--color-ink);
+  border-bottom-color: var(--color-amber);
 }
 
 .filter-row {

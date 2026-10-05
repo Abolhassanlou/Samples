@@ -5,17 +5,15 @@ import { fetchWorker, updateWorker } from '@/api/worker'
 import { updateMe } from '@/api/authProfile'
 import { COUNTRIES } from '@/constants/countries'
 import { LANGUAGES } from '@/constants/languages'
+import { EU_CITIZEN_MARKER } from '@/utils/workAuthorization'
 
 const auth = useAuthStore()
 
 const LANGUAGE_OPTIONS = ['german', 'english', 'italian', 'french']
 
-// A canonical marker string for "doesn't need a visa" — distinguishes
-// it from an actual visa/permit type the worker might type in. Both
-// live in the same work_authorization_type field the backend already
-// has; this is just how the two paths of the yes/no question below map
-// onto it.
-const EU_CITIZEN_MARKER = 'EU/EEA/Swiss/Austrian citizen — no visa required'
+// EU_CITIZEN_MARKER (utils/workAuthorization.js) is how the "doesn't need a
+// visa" answer is stored — in the same work_authorization_type field a typed
+// visa/permit name goes into; this form maps the yes/no question onto it.
 
 const STATUS_LABELS = {
   pending: 'Pending admin review',

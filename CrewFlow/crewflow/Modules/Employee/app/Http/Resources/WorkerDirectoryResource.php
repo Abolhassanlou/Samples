@@ -40,6 +40,7 @@ class WorkerDirectoryResource extends JsonResource
                 'name' => $wq->qualification?->name,
             ]),
             'availability' => $this->availability->map(fn ($a) => [
+                'date' => $a->date?->toDateString(),
                 'day_of_week' => $a->day_of_week,
                 'start_time' => $a->start_time,
                 'end_time' => $a->end_time,

@@ -12,10 +12,18 @@ class WorkerAvailability extends Model
 
     protected $fillable = [
         'worker_id',
-        'day_of_week', // 0 (Sunday) - 6 (Saturday)
+        'date', // null = a weekly template row; set = available on exactly this date
+        'day_of_week', // 0 (Sunday) - 6 (Saturday); for a dated row, that date's weekday
         'start_time',
         'end_time',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'date' => 'date',
+        ];
+    }
 
     public function worker(): BelongsTo
     {

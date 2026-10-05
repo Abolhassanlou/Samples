@@ -47,6 +47,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('users/{user}/qualifications', [WorkerQualificationController::class, 'index']);
     Route::get('users/{user}/availability', [WorkerAvailabilityController::class, 'index']);
     Route::post('users/{user}/availability', [WorkerAvailabilityController::class, 'sync']);
+    Route::post('users/{user}/availability/weeks', [WorkerAvailabilityController::class, 'syncWeeks']);
+    Route::get('users/{user}/availability/reserved', [WorkerAvailabilityController::class, 'reserved']);
     Route::get('users/{user}/contracts', [EmploymentContractController::class, 'index']);
     Route::get('users/{user}/contracts/{contract}/download', [EmploymentContractController::class, 'download']);
     Route::put('users/{user}/worker', [WorkerController::class, 'update']);

@@ -2,6 +2,7 @@
 
 namespace Modules\Employee\Http\Controllers\Api;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Modules\Core\Http\Controllers\Controller;
 use Modules\Core\Traits\ApiResponse;
@@ -25,7 +26,21 @@ class WorkerDirectoryController extends Controller
     public function index(Request $request)
     {
         $query = Worker::query()
-            ->with(['user', 'companyWorker.homeBranch', 'companyWorker.contracts', 'qualifications.qualification', 'availability']);
+            ->with([
+                'user',
+                'companyWorker.homeBranch',
+                'companyWorker.contracts',
+                'qualifications.qualification',
+                // Weekly template rows, plus dated rows for the next two
+                // weeks only — a worker who's saved months of dated
+                // availability would otherwise ship every one of those
+                // rows on every directory request, for a card that only
+                // has room for the near term anyway.
+                'availability' => fn ($a) => $a
+                    ->where(fn ($w) => $w->whereNull('date')
+                        ->orWhereBetween('date', [now()->toDateString(), now()->addDays(13)->toDateString()]))
+                    ->orderBy('date')->orderBy('day_of_week')->orderBy('start_time'),
+            ]);
 
         if ($request->filled('branch_id')) {
             $query->whereHas('companyWorker', function ($q) use ($request) {
@@ -97,12 +112,34 @@ class WorkerDirectoryController extends Controller
             });
         }
 
-        // Both day_of_week (0=Sunday..6=Saturday) and time (HH:MM) must be
-        // given together — a worker matches if they have an availability
-        // slot on that day spanning that time.
+        // Preferred: date (YYYY-MM-DD) + time (HH:MM), given together — a
+        // worker matches if they're available at that time ON THAT DATE,
+        // either through a dated row for exactly that date or a weekly
+        // template row for that date's weekday.
+        if ($request->filled('date') && $request->filled('time')) {
+            $request->validate(['date' => ['date_format:Y-m-d']]);
+            $date = Carbon::createFromFormat('Y-m-d', $request->query('date'));
+
+            $query->whereHas('availability', function ($q) use ($request, $date) {
+                $q->where(function ($w) use ($date) {
+                    $w->whereDate('date', $date->toDateString())
+                        ->orWhere(fn ($weekly) => $weekly->whereNull('date')->where('day_of_week', $date->dayOfWeek));
+                })
+                    ->where('start_time', '<=', $request->query('time'))
+                    ->where('end_time', '>=', $request->query('time'));
+            });
+        }
+
+        // Older form, kept so existing callers still work: day_of_week
+        // (0=Sunday..6=Saturday) + time. With dated rows that has to mean
+        // "a weekly template row, or a dated row on some upcoming date
+        // with that weekday" — without the date check below, a worker's
+        // availability on last month's Tuesdays would still match.
+        // Prefer date + time above; that one answers a specific day.
         if ($request->filled('day_of_week') && $request->filled('time')) {
             $query->whereHas('availability', function ($q) use ($request) {
                 $q->where('day_of_week', $request->integer('day_of_week'))
+                    ->where(fn ($w) => $w->whereNull('date')->orWhereDate('date', '>=', now()->toDateString()))
                     ->where('start_time', '<=', $request->query('time'))
                     ->where('end_time', '>=', $request->query('time'));
             });

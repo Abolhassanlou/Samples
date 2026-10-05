@@ -20,6 +20,7 @@ import {
   viewDocument,
 } from '@/api/workers'
 import { fetchCustomFields, fetchWorkerAnswers } from '@/api/customFields'
+import { formatAnswer as formatCustomAnswer, isAnswered as isCustomAnswered, visibleQuestions } from '@/utils/customAnswers'
 import { fetchDocumentTypes } from '@/api/documentTypes'
 import { COUNTRIES } from '@/constants/countries'
 import { LANGUAGES } from '@/constants/languages'
@@ -54,7 +55,10 @@ const contracts = ref([])
 const branches = ref([])
 const documents = ref([])
 const skillFields = ref([])
-const skillAnswers = ref([])
+const personalInfoFields = ref([])
+// ALL of this worker's custom-question answers (every category) — the
+// Skills tab and the personal-info questions on Profile both read from it.
+const customAnswers = ref([])
 const personalDocTypes = ref([])
 const workDocTypes = ref([])
 
@@ -89,13 +93,14 @@ async function loadAll() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [w, e, c, b, d, sf, sa, pdt, wdt] = await Promise.all([
+    const [w, e, c, b, d, sf, pf, sa, pdt, wdt] = await Promise.all([
       fetchWorker(userId),
       fetchEmployment(userId),
       fetchContracts(userId),
       fetchBranches(),
       fetchWorkerDocuments(userId),
       fetchCustomFields('skill'),
+      fetchCustomFields('personal_info'),
       fetchWorkerAnswers(userId),
       fetchDocumentTypes('personal'),
       fetchDocumentTypes('work'),
@@ -106,7 +111,8 @@ async function loadAll() {
     branches.value = b
     documents.value = d
     skillFields.value = sf
-    skillAnswers.value = sa
+    personalInfoFields.value = pf
+    customAnswers.value = sa
     personalDocTypes.value = pdt
     workDocTypes.value = wdt
   } catch {
@@ -137,25 +143,10 @@ async function saveEmployment() {
   }
 }
 
-// --- Skills (read-only — these are the worker's own self-reported answers) ---
-function skillAnswerFor(fieldId) {
-  return skillAnswers.value.find((a) => a.custom_field_definition_id === fieldId)?.value
-}
-
-function formatSkillAnswer(field) {
-  const raw = skillAnswerFor(field.id)
-  if (raw === undefined || raw === null || raw === '') return '—'
-  if (field.field_type === 'boolean') return raw === 'true' ? 'Yes' : 'No'
-  if (field.field_type === 'multi_select') {
-    try {
-      const list = JSON.parse(raw)
-      return Array.isArray(list) && list.length > 0 ? list.join(', ') : '—'
-    } catch {
-      return raw
-    }
-  }
-  return raw
-}
+// --- Custom-question answers (read-only — the worker's own self-reported answers) ---
+const formatAnswer = (field) => formatCustomAnswer(field, customAnswers.value)
+const isAnswered = (field) => isCustomAnswered(field, customAnswers.value)
+const personalInfoQuestions = computed(() => visibleQuestions(personalInfoFields.value, customAnswers.value))
 
 // --- Documents, split by category ---
 const personalDocuments = computed(() =>
@@ -355,185 +346,217 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
 
       <!-- PROFILE -->
       <section v-if="activeTab === 'profile'" class="panel">
-        <h2 class="panel-title">Personal details</h2>
-        <div class="field-grid">
-          <label class="field">
-            <span class="field-label">First name</span>
-            <input v-model="worker.first_name" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">Last name</span>
-            <input v-model="worker.last_name" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">Date of birth</span>
-            <input v-model="worker.date_of_birth" type="date" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">Gender</span>
-            <select v-model="worker.gender" class="field-input">
-              <option value="">—</option>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
-              <option value="diverse">Diverse</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Marital status</span>
-            <select v-model="worker.marital_status" class="field-input">
-              <option value="">—</option>
-              <option value="single">Single</option>
-              <option value="married">Married</option>
-              <option value="separated">Separated</option>
-              <option value="widowed">Widowed</option>
-              <option value="registered_partnership">Registered partnership</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Nationality</span>
-            <select v-model="worker.nationality" class="field-input">
-              <option value="">—</option>
-              <option v-for="c in COUNTRIES" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Native language</span>
-            <select v-model="worker.native_language" class="field-input">
-              <option value="">—</option>
-              <option v-for="l in LANGUAGES" :key="l" :value="l">{{ l }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Social security number</span>
-            <input v-model="worker.social_security_number" type="text" maxlength="10" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">German level</span>
-            <select v-model="worker.german_language_level" class="field-input">
-              <option value="">—</option>
-              <option value="none">None</option>
-              <option value="basic">Basic</option>
-              <option value="conversational">Conversational</option>
-              <option value="fluent">Fluent</option>
-              <option value="native">Native</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Status</span>
-            <select v-model="worker.status" class="field-input">
-              <option value="pending">Pending</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="blocked">Blocked</option>
-            </select>
-          </label>
+        <div class="form-section">
+          <h3 class="section-heading">Personal details</h3>
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">First name</span>
+              <input v-model="worker.first_name" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">Last name</span>
+              <input v-model="worker.last_name" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">Date of birth</span>
+              <input v-model="worker.date_of_birth" type="date" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">Gender</span>
+              <select v-model="worker.gender" class="field-input">
+                <option value="">—</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="diverse">Diverse</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Marital status</span>
+              <select v-model="worker.marital_status" class="field-input">
+                <option value="">—</option>
+                <option value="single">Single</option>
+                <option value="married">Married</option>
+                <option value="separated">Separated</option>
+                <option value="widowed">Widowed</option>
+                <option value="registered_partnership">Registered partnership</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Nationality</span>
+              <select v-model="worker.nationality" class="field-input">
+                <option value="">—</option>
+                <option v-for="c in COUNTRIES" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Native language</span>
+              <select v-model="worker.native_language" class="field-input">
+                <option value="">—</option>
+                <option v-for="l in LANGUAGES" :key="l" :value="l">{{ l }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Social security number</span>
+              <input v-model="worker.social_security_number" type="text" maxlength="10" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">German level</span>
+              <select v-model="worker.german_language_level" class="field-input">
+                <option value="">—</option>
+                <option value="none">None</option>
+                <option value="basic">Basic</option>
+                <option value="conversational">Conversational</option>
+                <option value="fluent">Fluent</option>
+                <option value="native">Native</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Status</span>
+              <select v-model="worker.status" class="field-input">
+                <option value="pending">Pending</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="languages-field">
+            <span class="field-label">Other languages spoken</span>
+            <div class="language-options">
+              <label v-for="lang in LANGUAGE_OPTIONS" :key="lang" class="language-option">
+                <input type="checkbox" :value="lang" v-model="worker.languages_spoken" />
+                {{ lang.charAt(0).toUpperCase() + lang.slice(1) }}
+              </label>
+            </div>
+          </div>
         </div>
 
-        <div class="languages-field">
-          <span class="field-label">Other languages spoken</span>
-          <div class="language-options">
-            <label v-for="lang in LANGUAGE_OPTIONS" :key="lang" class="language-option">
-              <input type="checkbox" :value="lang" v-model="worker.languages_spoken" />
-              {{ lang.charAt(0).toUpperCase() + lang.slice(1) }}
+        <div class="form-section">
+          <h3 class="section-heading">Address</h3>
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">Street</span>
+              <input v-model="worker.street" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">House number</span>
+              <input v-model="worker.house_number" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">Postal code</span>
+              <input v-model="worker.postal_code" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">City</span>
+              <input v-model="worker.city" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">Country</span>
+              <select v-model="worker.country" class="field-input">
+                <option value="">—</option>
+                <option v-for="c in COUNTRIES" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Residence type</span>
+              <select v-model="worker.residence_type" class="field-input">
+                <option value="">—</option>
+                <option value="main">Main (Hauptwohnsitz)</option>
+                <option value="secondary">Secondary (Nebenwohnsitz)</option>
+              </select>
             </label>
           </div>
         </div>
 
-        <h3 class="subsection-title">Address</h3>
-        <div class="field-grid">
-          <label class="field">
-            <span class="field-label">Street</span>
-            <input v-model="worker.street" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">House number</span>
-            <input v-model="worker.house_number" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">Postal code</span>
-            <input v-model="worker.postal_code" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">City</span>
-            <input v-model="worker.city" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">Country</span>
-            <select v-model="worker.country" class="field-input">
-              <option value="">—</option>
-              <option v-for="c in COUNTRIES" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Residence type</span>
-            <select v-model="worker.residence_type" class="field-input">
-              <option value="">—</option>
-              <option value="main">Main (Hauptwohnsitz)</option>
-              <option value="secondary">Secondary (Nebenwohnsitz)</option>
-            </select>
-          </label>
+        <div class="form-section">
+          <h3 class="section-heading">Bank details</h3>
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">Bank name</span>
+              <input v-model="worker.bank_name" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">Account holder</span>
+              <input v-model="worker.bank_account_holder_name" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">IBAN</span>
+              <input v-model="worker.iban" type="text" class="field-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">BIC</span>
+              <input v-model="worker.bic" type="text" class="field-input" />
+            </label>
+          </div>
         </div>
 
-        <h3 class="subsection-title">Bank details</h3>
-        <div class="field-grid">
-          <label class="field">
-            <span class="field-label">Bank name</span>
-            <input v-model="worker.bank_name" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">Account holder</span>
-            <input v-model="worker.bank_account_holder_name" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">IBAN</span>
-            <input v-model="worker.iban" type="text" class="field-input" />
-          </label>
-          <label class="field">
-            <span class="field-label">BIC</span>
-            <input v-model="worker.bic" type="text" class="field-input" />
-          </label>
+        <div class="form-section">
+          <h3 class="section-heading">Work authorization</h3>
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">Status</span>
+              <select v-model="worker.work_authorization_status" class="field-input">
+                <option value="pending">Pending</option>
+                <option value="valid">Valid</option>
+                <option value="expired">Expired</option>
+                <option value="not_required">Not required — e.g. Austrian/EU citizen</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </label>
+            <label class="field" :class="{ 'field--disabled': worker.work_authorization_status === 'not_required' }">
+              <span class="field-label">Type</span>
+              <input
+                v-model="worker.work_authorization_type"
+                type="text"
+                class="field-input"
+                :disabled="worker.work_authorization_status === 'not_required'"
+                placeholder="e.g. Rot-Weiß-Rot Karte Plus"
+              />
+            </label>
+            <label class="field" :class="{ 'field--disabled': worker.work_authorization_status === 'not_required' }">
+              <span class="field-label">Expiry date</span>
+              <input
+                v-model="worker.work_authorization_expiry_date"
+                type="date"
+                class="field-input"
+                :disabled="worker.work_authorization_status === 'not_required'"
+              />
+            </label>
+          </div>
+          <p v-if="worker.work_authorization_status === 'not_required'" class="not-required-note">
+            Type and expiry date are greyed out — they don't apply when no work authorization is
+            needed (e.g. an Austrian or other EU citizen).
+          </p>
         </div>
-
-        <h3 class="subsection-title">Work authorization</h3>
-        <div class="field-grid">
-          <label class="field">
-            <span class="field-label">Status</span>
-            <select v-model="worker.work_authorization_status" class="field-input">
-              <option value="pending">Pending</option>
-              <option value="valid">Valid</option>
-              <option value="expired">Expired</option>
-              <option value="not_required">Not required — e.g. Austrian/EU citizen</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </label>
-          <label class="field" :class="{ 'field--disabled': worker.work_authorization_status === 'not_required' }">
-            <span class="field-label">Type</span>
-            <input
-              v-model="worker.work_authorization_type"
-              type="text"
-              class="field-input"
-              :disabled="worker.work_authorization_status === 'not_required'"
-              placeholder="e.g. Rot-Weiß-Rot Karte Plus"
-            />
-          </label>
-          <label class="field" :class="{ 'field--disabled': worker.work_authorization_status === 'not_required' }">
-            <span class="field-label">Expiry date</span>
-            <input
-              v-model="worker.work_authorization_expiry_date"
-              type="date"
-              class="field-input"
-              :disabled="worker.work_authorization_status === 'not_required'"
-            />
-          </label>
-        </div>
-        <p v-if="worker.work_authorization_status === 'not_required'" class="not-required-note">
-          Type and expiry date are greyed out — they don't apply when no work authorization is
-          needed (e.g. an Austrian or other EU citizen).
-        </p>
 
         <button class="save-button" :disabled="savingWorker" @click="saveWorker">
           {{ savingWorker ? 'Saving…' : 'Save personal details' }}
         </button>
+      </section>
+
+      <!-- ADDITIONAL QUESTIONS — the company's own personal-info questions and
+           this worker's answers. Read-only, like the Skills tab, and a separate
+           panel on purpose: the Save button above doesn't touch these. -->
+      <section v-if="activeTab === 'profile' && personalInfoQuestions.length > 0" class="panel">
+        <h2 class="panel-title">Additional questions</h2>
+        <p class="panel-sublead">
+          The worker's own answers to your company's personal-info questions — read-only here;
+          they edit these from their own profile. Manage the question list itself from the Custom
+          Fields page.
+        </p>
+
+        <div class="skills-list">
+          <div v-for="field in personalInfoQuestions" :key="field.id" class="skill-row">
+            <span class="skill-label">
+              {{ field.label }}
+              <span v-if="!field.is_active" class="question-disabled">disabled</span>
+            </span>
+            <span v-if="isAnswered(field)" class="skill-value">{{ formatAnswer(field) }}</span>
+            <span v-else-if="field.is_required" class="skill-value skill-value--missing">Required — not answered yet</span>
+            <span v-else class="skill-value">—</span>
+          </div>
+        </div>
       </section>
 
       <!-- EMPLOYMENT -->
@@ -592,7 +615,7 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
         <div v-if="skillFields.length > 0" class="skills-list">
           <div v-for="field in skillFields" :key="field.id" class="skill-row">
             <span class="skill-label">{{ field.label }}</span>
-            <span class="skill-value">{{ formatSkillAnswer(field) }}</span>
+            <span class="skill-value">{{ formatAnswer(field) }}</span>
           </div>
         </div>
         <p v-else class="empty-note">No skill questions have been set up for your company yet.</p>
@@ -923,11 +946,45 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
   margin: 0 0 1.1rem;
 }
 
-.subsection-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--color-slate);
-  margin: 1.25rem 0 0.75rem;
+/* Each group of the Profile tab (Personal details / Address / Bank details /
+   Work authorization) is its own tinted card with a strong heading, so they
+   read as separate sections rather than one long form. The inputs are white
+   (see .field-input), which is what makes them stand out on the tint. */
+.form-section {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem 1.25rem;
+  margin-bottom: 1.1rem;
+}
+
+.form-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.form-section > :last-child {
+  margin-bottom: 0;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* The amber bar the rest of the app uses to mark "this is the thing". */
+.section-heading::before {
+  content: '';
+  flex-shrink: 0;
+  width: 4px;
+  height: 1.15em;
+  border-radius: 2px;
+  background: var(--color-amber);
 }
 
 .field-grid {
@@ -1067,6 +1124,23 @@ const activeContract = computed(() => contracts.value.find((c) => c.status === '
 .skill-value {
   font-size: 0.85rem;
   color: var(--color-slate);
+}
+
+.skill-value--missing {
+  color: var(--color-amber-dark);
+  font-weight: 600;
+}
+
+/* A question since switched off, still listed because this worker had answered it. */
+.question-disabled {
+  margin-left: 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-slate);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
 }
 
 .doc-list {
