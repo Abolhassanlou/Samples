@@ -12,6 +12,8 @@ class WorkerAvailabilityResource extends JsonResource
         return [
             'id' => $this->id,
             'worker_id' => $this->worker_id,
+            // null for a weekly template row, 'YYYY-MM-DD' for a dated one
+            'date' => $this->date?->toDateString(),
             'day_of_week' => $this->day_of_week,
             'start_time' => $this->start_time,
             'end_time' => $this->end_time,

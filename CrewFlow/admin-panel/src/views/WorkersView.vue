@@ -18,12 +18,12 @@ const branchId = ref('')
 const workTimeModel = ref('')
 const nightShift = ref(false)
 const eligibleOnly = ref(false)
-const dayOfWeek = ref('')
+const availableDate = ref('') // YYYY-MM-DD
 const time = ref('')
 const workAuthorizationStatus = ref('')
 
-const hasTimeFilter = computed(() => dayOfWeek.value !== '' && !!time.value)
-const timeFilterIncomplete = computed(() => (dayOfWeek.value !== '') !== !!time.value)
+const hasTimeFilter = computed(() => !!availableDate.value && !!time.value)
+const timeFilterIncomplete = computed(() => !!availableDate.value !== !!time.value)
 
 async function loadOptions() {
   const [q, b] = await Promise.all([fetchQualifications(), fetchBranches()])
@@ -42,7 +42,7 @@ async function loadWorkers() {
       workTimeModel: workTimeModel.value,
       nightShift: nightShift.value,
       eligibleOnly: eligibleOnly.value,
-      dayOfWeek: dayOfWeek.value,
+      date: availableDate.value,
       time: hasTimeFilter.value ? time.value : '',
       workAuthorizationStatus: workAuthorizationStatus.value,
     })
@@ -58,10 +58,10 @@ onMounted(async () => {
   await loadWorkers()
 })
 
-// Re-query whenever a filter changes, except while the day/time pair is
+// Re-query whenever a filter changes, except while the date/time pair is
 // half-filled (avoids firing a request with only one of the two set).
 watch(
-  [search, qualificationId, branchId, workTimeModel, nightShift, eligibleOnly, dayOfWeek, time, workAuthorizationStatus],
+  [search, qualificationId, branchId, workTimeModel, nightShift, eligibleOnly, availableDate, time, workAuthorizationStatus],
   () => {
     if (timeFilterIncomplete.value) return
     loadWorkers()
@@ -71,6 +71,23 @@ watch(
 function formatTime(value) {
   return value?.slice(0, 5) ?? ''
 }
+
+// A dated slot reads "Tue 6 Oct"; a weekly template row (no date — what
+// the create-worker form writes) reads "Tue (weekly)". `date` is built
+// from its parts, not parsed with new Date('YYYY-MM-DD'), which would
+// read it as UTC midnight and show the previous day west of UTC.
+function slotDayLabel(slot) {
+  if (slot.date) {
+    const [y, m, d] = slot.date.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+  }
+  return `${DAY_LABELS[slot.day_of_week].slice(0, 3)} (weekly)`
+}
+
+// The card only has room for the near term — the directory already sends
+// just the next two weeks of dated slots, but a busy worker can still
+// have a lot of them.
+const MAX_SLOT_CHIPS = 8
 </script>
 
 <template>
@@ -125,15 +142,12 @@ function formatTime(value) {
           Assignable right now
         </label>
 
-        <select v-model="dayOfWeek" class="filter-input">
-          <option value="">Any day</option>
-          <option v-for="(label, i) in DAY_LABELS" :key="i" :value="i">{{ label }}</option>
-        </select>
+        <input v-model="availableDate" type="date" class="filter-input" title="Available on this date" />
 
-        <input v-model="time" type="time" class="filter-input" />
+        <input v-model="time" type="time" class="filter-input" title="…at this time" />
       </div>
       <p v-if="timeFilterIncomplete" class="filter-hint">
-        Pick both a day and a time to filter by availability.
+        Pick both a date and a time to filter by availability.
       </p>
     </section>
 
@@ -183,8 +197,11 @@ function formatTime(value) {
 
         <div class="worker-availability">
           <span v-if="worker.availability.length === 0" class="no-avail">No availability on file</span>
-          <span v-for="(slot, i) in worker.availability" :key="i" class="avail-chip">
-            {{ DAY_LABELS[slot.day_of_week].slice(0, 3) }} {{ formatTime(slot.start_time) }}–{{ formatTime(slot.end_time) }}
+          <span v-for="(slot, i) in worker.availability.slice(0, MAX_SLOT_CHIPS)" :key="i" class="avail-chip">
+            {{ slotDayLabel(slot) }} {{ formatTime(slot.start_time) }}–{{ formatTime(slot.end_time) }}
+          </span>
+          <span v-if="worker.availability.length > MAX_SLOT_CHIPS" class="avail-more">
+            +{{ worker.availability.length - MAX_SLOT_CHIPS }} more
           </span>
         </div>
       </RouterLink>
@@ -395,6 +412,13 @@ function formatTime(value) {
 }
 
 .no-quals,
+.avail-more {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--color-slate);
+  align-self: center;
+}
+
 .no-avail {
   font-size: 0.78rem;
   color: var(--color-slate);

@@ -40,10 +40,19 @@ This changes what `ShiftVisibility` actually checks once a Shift has positions: 
 
 1. `Worker.status` is `active`
 2. `work_authorization_status` is `valid` or `not_required`
-3. their `CompanyWorker.status` is `active`
-4. they have at least one `EmploymentContract` that's currently active (`status=active` and not past its `end_date`)
+3. `work_authorization_expiry_date`, if set, hasn't already passed — checked independently of #2, as a safety net for stale status (an admin who forgets to flip status to `expired` the day a document lapses). Applies even when status is `not_required`: a passport/ID still expires for an EU/EEA/Swiss/Austrian citizen who needs no visa (see PersonalDetailsForm.vue in worker-portal, which now asks that citizen for their passport's own expiry date, not just a visa-holder's)
+4. their `CompanyWorker.status` is `active`
+5. they have at least one `EmploymentContract` that's currently active (`status=active` and not past its `end_date`)
 
 A worker missing any of these gets a clear 422, not a silent failure. This is a hard gate at assignment time — separate from `ShiftVisibility` (which only controls whether a worker *sees* a shift at all).
+
+## Reserved hours (`Services/ReservedTimes.php`)
+
+Employee's availability editor won't let a worker remove availability for hours they're already booked into. Employee only knows a `ReservedTimeProvider` contract; this module implements it and binds it in `ShiftServiceProvider::register()` (see the Employee README, "Dated availability" → "Booked hours can't be removed", for why the dependency points this way).
+
+An hour is **reserved** when the worker has an assignment with status `pending_worker_confirmation` or `confirmed` on a shift whose own status isn't `cancelled`. Pending counts, not only confirmed — once a dispatcher has placed someone the time is spoken for whether or not they've tapped Confirm. An interest (not yet an assignment) reserves nothing. Nothing is stored: it's computed from live assignment/shift status, so cancelling an assignment (or the shift) releases the hours immediately, with no flag to clear. Reserved means reserved even when the shift is still weeks away — only a cancelled booking frees the time.
+
+A shift that crosses midnight is split per calendar date (22:00–02:00 becomes 22:00–23:59 on the first date and 00:00–02:00 on the next; ending exactly at midnight stays within the first date). Times are compared exactly as stored on the shift — the wall-clock values an admin typed — against the wall-clock hours of the availability grid.
 
 ## Re-confirmation on shift changes
 

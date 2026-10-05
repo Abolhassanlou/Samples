@@ -4,6 +4,8 @@ namespace Modules\Shift\Providers;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Modules\Employee\Contracts\ReservedTimeProvider;
+use Modules\Shift\Services\ReservedTimes;
 
 class ShiftServiceProvider extends ServiceProvider
 {
@@ -22,7 +24,12 @@ class ShiftServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        // Employee's availability editor refuses to drop hours a worker is
+        // already booked into, but only knows the ReservedTimeProvider
+        // contract — what counts as "booked" (an active Assignment) is
+        // Shift's to say. Plain bind(), not bindIf(): Employee registers a
+        // do-nothing default with bindIf(), and this must replace it.
+        $this->app->bind(ReservedTimeProvider::class, ReservedTimes::class);
     }
 
     protected function registerConfig(): void

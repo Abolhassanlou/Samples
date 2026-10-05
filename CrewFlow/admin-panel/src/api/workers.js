@@ -10,6 +10,7 @@ export function fetchWorkers(filters = {}) {
   if (filters.nightShift) params.night_shift = 1
   if (filters.eligibleOnly) params.eligible = 1
   if (filters.dayOfWeek !== '' && filters.dayOfWeek != null) params.day_of_week = filters.dayOfWeek
+  if (filters.date) params.date = filters.date
   if (filters.time) params.time = filters.time
   if (filters.workAuthorizationStatus) params.work_authorization_status = filters.workAuthorizationStatus
 
