@@ -124,6 +124,14 @@ Inviting the same email twice normally fails outright (`email` is `unique:users`
 
 `POST /api/workers/{user}/reactivate` is the explicit confirmation step — deliberately separate from `store()` auto-reactivating on a bare retry, since that would let a plain re-invite accidentally resurrect someone a different admin deliberately deactivated. It resets `CompanyWorker.status` to `invited` and resends the invitation email (both `store()` and `reactivate()` share this through a private `sendInvitation()` helper) — that's *all* it touches. `Worker` itself, every document, and the full contract history are completely untouched, so a returning worker picks up right where they left off once they set a new password. `Worker.status` isn't touched by `reactivate()` either — `accept()` (entirely unchanged) sets it back to `pending` once they actually complete the new invitation, exactly the same code path as any other accept, reactivation or not.
 
+## Required questions
+
+A custom question marked `is_required` used to be only a red asterisk: nothing checked it, anywhere. `CustomFieldAnswerController::sync()` now rejects a save in which an **active** required question has no real answer, with a 422 whose message is "<label> is required." attached to that answer's own `answers.N.value` — so any client can show it next to the right field (worker-portal's form also checks first, so the person is told before anything is sent).
+
+What counts as "no answer": null, empty or whitespace-only text; a `multi_select` with nothing ticked (stored as the JSON array `"[]"`, which is a non-empty string, so it's decoded and checked). **`0` is a real answer** — the check is explicit rather than PHP's `empty()`, which treats `"0"` as empty. A `boolean` is never blank: an unticked box is still an answer, and the form can't submit one without a value anyway (so a required boolean can't be used as "must tick to accept" — that would need its own rule).
+
+Two deliberate limits. It's checked **per submitted answer**, not across every required question the company has: Personal details and Skills each send only their own category's questions through this same endpoint, and a blank required skill must not stop someone saving their personal details. And a **disabled** question is never enforced — it isn't shown to workers, so it can't be answered. A client that leaves a required question out of the request entirely isn't caught (worker-portal always sends every field in its category). An answer already stored blank for a question that has since become required isn't touched, but that worker can't save that section again until they answer it.
+
 ## Work authorization expiry
 
 A worker's `work_authorization_expiry_date` matters even when `work_authorization_status` is `not_required` — an EU/EEA/Swiss/Austrian citizen needs no visa, but their passport/ID still expires and needs renewing, so `PersonalDetailsForm.vue` in worker-portal now asks that citizen for that date too, not just a visa-holder. That form only ever submits `work_authorization_type`/`work_authorization_expiry_date` as the worker's own **claim** — `work_authorization_status` itself stays admin-only (`WorkerController::update()` strips it from self-updates), so nothing here becomes authoritative until an admin actually looks at the uploaded passport/permit document and sets status themselves.
@@ -144,11 +152,39 @@ For this command to actually run on a schedule (not just when invoked manually),
 
 **`contracts:expire`** (`Console/Commands/ExpireContracts.php`) closes this the same way: flips `status` from `active` to `expired` for every contract whose `end_date` has passed, across every tenant, scheduled daily right alongside `workers:expire-authorizations` in the same `EmployeeServiceProvider::registerSchedule()` call — same crontab requirement applies (see above). A permanent contract (`end_date IS NULL`) is never touched, since there's nothing to expire.
 
+## Dated availability
+
+`worker_availabilities` holds two kinds of row, told apart by the nullable `date` column:
+
+- **Weekly template** (`date` NULL) — "every Tuesday 18:00–22:00", the original meaning. Written by `POST /availability` (admin-panel's create-worker form still uses it); that endpoint replaces **only** template rows now — before dated rows existed it deleted every row the worker had, which would silently erase weeks of dated availability the next time anything posted a template.
+- **Dated** (`date` set) — "available on 2026-10-06, 18:00–22:00". `day_of_week` is still filled in (that date's weekday), so day-of-week queries work on both kinds.
+
+`POST /availability/weeks` is what worker-portal's "Save → repeat?" prompt calls. The worker edits one week; the request carries that week's pattern (`slots`, for the Monday `week_start`) and a `repeat`:
+
+| `repeat.mode` | covers |
+|---|---|
+| `none` | just that week (Monday–Sunday) |
+| `weeks` + `count` (1–52) | `count` whole weeks |
+| `months` + `count` (1–12) | `count` calendar months later, minus a day — no day-of-month overflow (Jan 31 + 1 month is Feb 28/29) |
+| `until` + date | exactly through that date; may end mid-week, and that last week is then only partly written |
+
+The pattern is expanded into **one dated row per matching day** across the span (`AvailabilityRepeat::endDate()` computes the last date; worker-portal's `src/utils/availabilityDates.js` mirrors it for the preview line — keep the two in step), after first deleting every dated row the worker already had inside that span, in one transaction. So a repeat **replaces** those dates rather than stacking on top of them, and an empty `slots` clears them — which is also how a worker books time off ("not available for the next 3 weeks"). Template rows, and dates outside the span, are never touched.
+
+**Why rows, not a stored recurrence rule.** A rule ("every Tuesday until March") means every later edit has to answer "this week only, or the whole series?" and split the rule to match. Writing the dates out makes each week independent: editing one week just rewrites that week, with nothing to split. The cost is row count — 4 months of a 5-slot week is about 85 rows — which is small next to the complexity it avoids.
+
+**Booked hours can't be removed.** An hour a shift is already booked into stays available no matter what a save asks for — a worker can't un-offer time they've been committed to, even if the booking is weeks away. `syncWeeks()` asks a `ReservedTimeProvider` (`Contracts/ReservedTimeProvider.php`) for the worker's booked segments across the span and merges them back into the rows it writes (`AvailabilityIntervals::merge()`), so a pattern that leaves them out, or a repeat that sweeps over weeks the worker isn't looking at, still keeps them. The response's `reserved_kept` counts the bookings that needed rescuing. Rather than rejecting the whole save, they're kept: a repeat across four weeks shouldn't fail outright because one Tuesday in week three has a shift on it.
+
+Employee itself has no idea what a "booking" is. That's the Shift module's `Assignment`, and Shift already depends on Employee (`WorkerEligibility` reads `Worker`), so importing Shift's models here would make the two depend on each other. Instead Employee defines the contract and registers `NullReservedTimeProvider` as the default with `bindIf()`; Shift implements it (`Shift/app/Services/ReservedTimes.php`) and binds it with a plain `bind()` in its own provider — the same "observe from outside" direction as Chat and Notification. `bindIf` on one side and `bind` on the other means module registration order doesn't matter.
+
+Limits (validated in `WorkerAvailabilityWeekRequest`): `week_start` must be a Monday and not before the current week; a span can't exceed 366 days. Past weeks can't be edited.
+
+The dispatcher directory only ships the next 14 days of dated rows per worker (plus template rows), not everything saved — see `WorkerDirectoryController::index()`.
+
 ## Custom fields — why companies need configurable questions, not hardcoded columns
 
 Different companies need different questions on a worker's profile — one asks about a manual-vs-automatic driving license, another doesn't care but wants a different question instead. Hardcoding columns for every possible question doesn't scale and would need a migration every time a company wants something new. Three tables handle this instead, deliberately kept separate because they answer different needs:
 
-- **`CustomFieldDefinition`** — a company-defined question: `category` (`personal_info` or `skill` — which Profile accordion it appears under), `key` (a stable slug, e.g. `"shoe_size"` — renaming the `label` later never orphans existing answers), `label`, `field_type` (`text`/`number`/`boolean`/`select`/`multi_select`/`date` — tells the frontend which input widget to render; `select` is a dropdown, one answer — `multi_select` is a checkbox list, any number of answers, e.g. "which grade levels do you teach?" answered with several at once), `options` (JSON array, used when `field_type` is `select` or `multi_select`), `is_required`, `sort_order`, `is_active` (soft-disable, not delete — keeps existing answers intact if a company stops asking something).
+- **`CustomFieldDefinition`** — a company-defined question: `category` (`personal_info` or `skill` — which Profile accordion it appears under), `key` (a stable slug, e.g. `"shoe_size"` — renaming the `label` later never orphans existing answers), `label`, `field_type` (`text`/`number`/`boolean`/`select`/`multi_select`/`date` — tells the frontend which input widget to render; `select` is a dropdown, one answer — `multi_select` is a checkbox list, any number of answers, e.g. "which grade levels do you teach?" answered with several at once), `options` (JSON array, used when `field_type` is `select` or `multi_select`), `is_required` (**enforced** — see "Required questions" below), `sort_order`, `is_active` (soft-disable, not delete — keeps existing answers intact if a company stops asking something).
 - **`CustomFieldAnswer`** — one worker's answer to one definition. Everything stored as `text` regardless of `field_type` (a boolean becomes `"true"`/`"false"`, a number its string form, a `multi_select` a JSON-encoded array string e.g. `'["middle_school","high_school"]'`) — simpler than a differently-typed column per `field_type`, and the frontend already knows how to parse/render each type from the definition it's answering.
 - **`CustomDocumentType`** — deliberately **not** part of the same system. A document "answer" is a file, not a piece of text, so it doesn't fit the definition/answer pattern above — this is just a company-added `{category, key, label}` triple that extends (never replaces) the fixed baseline list already in `WorkerDocumentController`. `WorkerDocumentController::store()`'s validation now accepts either list.
 
@@ -198,8 +234,10 @@ GET    /api/users/{user}/qualifications
 POST   /api/users/{user}/qualifications         { qualification_id }                        [qualifications.manage]
 DELETE /api/users/{user}/qualifications/{workerQualification}                                [qualifications.manage]
 
-GET    /api/users/{user}/availability
-POST   /api/users/{user}/availability           { slots: [{ day_of_week, start_time, end_time }, ...] }  (full replace; self or users.manage)
+GET    /api/users/{user}/availability                   the weekly TEMPLATE rows (date: null) only; ?from=YYYY-MM-DD[&to=YYYY-MM-DD] instead returns the dated rows in that inclusive range (to defaults to from) — what worker-portal's weekly grid loads
+POST   /api/users/{user}/availability           { slots: [{ day_of_week, start_time, end_time }, ...] }  (full replace; self or users.manage — an empty `slots: []` is valid and clears the whole week; a slot running to midnight is stored as end_time 23:59, since `H:i` has no 24:00, and a slot can't itself cross midnight — an overnight stretch is two slots, one per day. Used by worker-portal's weekly availability grid)
+POST   /api/users/{user}/availability/weeks     { week_start: 'YYYY-MM-DD' (a Monday), slots: [{ day_of_week, start_time, end_time }, ...], repeat: { mode: 'none'|'weeks'|'months'|'until', count?, until? } }  (self or users.manage) — saves one week's pattern and copies it forward; see "Dated availability" below
+GET    /api/users/{user}/availability/reserved?from=YYYY-MM-DD[&to=YYYY-MM-DD]   the worker's booked hours in that inclusive range, as { date, start_time, end_time, label } segments — what worker-portal's grid locks (self or users.manage)
 
 GET    /api/documents                           a worker's own upload history
 GET    /api/documents/types                     ?category=personal|work   the fixed baseline document types, each with its category (merge with custom-document-types below for the full list)
@@ -221,7 +259,7 @@ PUT    /api/custom-document-types/{documentType}                                
 DELETE /api/custom-document-types/{documentType}   permanent, but safe — doesn't touch already-uploaded files/records   [users.manage]
 
 GET    /api/users/{user}/custom-field-answers                                                  (self or users.manage)
-POST   /api/users/{user}/custom-field-answers   { answers: [{ custom_field_definition_id, value }, ...] }   (full replace; self or users.manage)
+POST   /api/users/{user}/custom-field-answers   { answers: [{ custom_field_definition_id, value }, ...] }   (full replace; self or users.manage) — an active `is_required` question can't be saved blank (422 "<label> is required." on that answer's own `answers.N.value`)
 
 GET    /api/workers                             ?search=&qualification_id=&branch_id=&contract_type=&work_time_model=&night_shift=1&eligible=1&day_of_week=&time=&work_authorization_status=   now also returns work_authorization_type/expiry_date on every row   [shifts.dispatch]
 GET    /api/workers/expiring-documents          every worker whose work_authorization_expiry_date is already past or within 30 days, most urgent first — powers the admin dashboard's expiring-documents list (see "Work authorization expiry" below)   [users.manage]
@@ -242,6 +280,7 @@ Authentication's `GET /api/users` (gated by `users.manage`) is an access-control
 - `contract_type` / `work_time_model` — only workers with an *active* contract matching
 - `night_shift=1` — only workers who've declared `works_night_shifts`
 - `eligible=1` — only workers actually assignable right now (active status, valid work authorization, active employment relationship, active non-expired contract) — the exact same rule Shift's `AssignmentController` enforces
-- `day_of_week` (0=Sunday..6=Saturday) + `time` (`HH:MM`) — only workers with an availability slot covering that day and time (both params required together)
+- `date` (`YYYY-MM-DD`) + `time` (`HH:MM`) — only workers available at that time **on that date**, through a dated row for exactly that date or a weekly template row for its weekday (both params required together). Preferred.
+- `day_of_week` (0=Sunday..6=Saturday) + `time` (`HH:MM`) — the older form, kept for existing callers: a weekly template row, or a dated row on some *upcoming* date with that weekday (dated rows in the past are ignored, so last month's Tuesdays don't match)
 
 Returns each worker's personal record, employment relationship (including home branch name and a summary of their currently-active contract, if any), full qualification list, and full availability list in one call — avoids the N+1 problem of calling the per-user endpoints once per worker.
